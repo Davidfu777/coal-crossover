@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the archived release."
+title: "Coal Crossover reproducible research code"
+type: software
+version: 1.0.0-rc1
+date-released: 2026-08-08
+authors:
+  - family-names: Loghmani
+    given-names: Lilly
+  - family-names: Fu
+    given-names: Haoran
+  - family-names: Butterfield
+    given-names: Connor
+  - family-names: Wagner
+    given-names: Gernot
+abstract: >-
+  Python pipeline, validation tests, and figure scripts for a global
+  unit-level dataset of coal-to-renewable cost crossover conditions.

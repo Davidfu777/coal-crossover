@@ -1,0 +1,37 @@
+.DS_Store
+.env
+.env.*
+.idea/
+.pytest_cache/
+.ruff_cache/
+.venv/
+.vscode/
+__pycache__/
+*.log
+*.py[cod]
+*.so
+*.tmp
+*.swp
+
+# Source data, intermediate files, and generated results
+sources/incoming/*
+!sources/incoming/.gitkeep
+work/*
+!work/.gitkeep
+outputs/*
+!outputs/.gitkeep
+figures/generated/*
+!figures/generated/.gitkeep
+figures/source_data/*
+!figures/source_data/.gitkeep
+
+# Local release products
+releases/
+*.zip
+*.tar
+*.tar.gz
+
+# Frontend and notebook build artifacts
+dist/
+node_modules/
+.ipynb_checkpoints/

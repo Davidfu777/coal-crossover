@@ -1,0 +1,67 @@
+{
+  "version": "1.0",
+  "status": "adopted_for_implementation",
+  "baseline_definition": "min(solar_lcoe, wind_lcoe) < coal_operating_cost_floor",
+  "spatial_resource": {
+    "same_country_only": true,
+    "radii_km": [30, 45, 60],
+    "central_radius_km": 45,
+    "cell_statistics": ["p50", "p90", "max"],
+    "central_cell_statistic": "p90"
+  },
+  "wind": {
+    "gross_to_net_loss_fractions": [0.1, 0.15, 0.2],
+    "central_loss_fraction": 0.15,
+    "formula": "wind_net_capacity_factor = wind_gross_capacity_factor * (1 - wind_loss_fraction)"
+  },
+  "battery_storage": {
+    "scope": "separate_sensitivity_layer",
+    "technology": "utility_scale_lithium_ion",
+    "duration_hours": [4],
+    "central_duration_hours": 4,
+    "stored_energy_shares": [0.0, 0.25, 0.5, 1.0],
+    "capex_source": "NREL/TP-6A40-93281",
+    "capex_2024_usd_per_kwh": {
+      "low": 295.0,
+      "mid": 321.0,
+      "high": 350.0
+    },
+    "usd_conversion": {
+      "source": "World Bank NY.GDP.DEFL.ZS, United States",
+      "from_year": 2024,
+      "to_year": 2025,
+      "deflator_2024": 119.027387038617,
+      "deflator_2025": 122.361624831936,
+      "factor": 1.028012358133
+    },
+    "capex_2025_usd_per_kwh": {
+      "low": 303.263646,
+      "mid": 329.991967,
+      "high": 359.804325
+    },
+    "central_capex_case": "mid",
+    "fixed_om_fraction_of_capex_per_kw_year": 0.04,
+    "variable_om_usd_per_mwh": 0.0,
+    "project_life_years": 15,
+    "round_trip_efficiency": 0.85,
+    "cycles_per_year": 365,
+    "wacc_rule": "paired_country_technology_real_after_tax_renewable_wacc_proxy",
+    "charging_cost_rule": "paired_renewable_lcoe"
+  },
+  "formulas": {
+    "battery_capex_per_kw": "capex_usd_per_kwh * duration_hours",
+    "battery_fom_per_kw_year": "fixed_om_fraction * battery_capex_per_kw",
+    "annual_discharged_mwh_per_kw": "duration_hours * cycles_per_year / 1000",
+    "storage_asset_lcos": "(battery_capex_per_kw * crf + battery_fom_per_kw_year) / annual_discharged_mwh_per_kw",
+    "charging_lcos": "renewable_lcoe / round_trip_efficiency",
+    "total_lcos": "storage_asset_lcos + charging_lcos",
+    "hybrid_lcoe": "(1 - stored_energy_share) * renewable_lcoe + stored_energy_share * total_lcos"
+  },
+  "interpretation": {
+    "storage_is_not_in_baseline": true,
+    "firm_replacement_claim": false,
+    "hourly_dispatch_model": false,
+    "global_battery_cost_is_benchmark_sensitivity": true,
+    "lazard_2026_role": "external_validation_only"
+  }
+}
