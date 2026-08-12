@@ -82,6 +82,15 @@ def test_scenario_payload_contains_complete_model_inputs() -> None:
     first = payload["plants"][0]
     assert len(first["solar"]["resources"]) == 3
     assert len(first["wind"]["resources"]) == 3
+    assert "city" in first
+
+    eu27 = payload["metadata"]["geographic_groups"]["eu27"]
+    assert eu27["label"] == "European Union"
+    assert len(eu27["member_countries"]) == 27
+    assert "european-union.europa.eu" in eu27["source"]
+    assert (
+        "Major area (prefecture, district)" in payload["metadata"]["geography"]["city_source_field"]
+    )
 
 
 def test_scenario_payload_is_strict_portable_json() -> None:

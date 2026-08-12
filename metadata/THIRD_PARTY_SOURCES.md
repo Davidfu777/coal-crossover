@@ -12,6 +12,7 @@ The dataset is derived from registered public or author-obtained sources. Origin
 - IEA/NEA, Projected Costs of Generating Electricity 2020: https://www.iea.org/reports/projected-costs-of-generating-electricity-2020
 - World Bank GDP deflator, indicator NY.GDP.DEFL.ZS: https://api.worldbank.org/v2/country/all/indicator/NY.GDP.DEFL.ZS
 - Natural Earth, Admin 0 Countries version 5.1.1: https://www.naturalearthdata.com/
+- European Union, EU countries and member-state list: https://european-union.europa.eu/principles-countries-history/eu-countries_en
 - NREL, Wind Vision appendices: https://docs.nrel.gov/docs/fy15osti/63197-3.pdf
 - NREL, Cost Projections for Utility-Scale Battery Storage: 2025 Update: https://doi.org/10.2172/2583471
 - NREL, Storage Futures Study: Storage Technology Modeling Input Data Report: https://www.osti.gov/servlets/purl/1785959

@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 
 from pipeline.model import renewable_lcoe
-from pipeline.paths import OUTPUTS, ROOT
+from pipeline.paths import GEM_WORKBOOK, OUTPUTS, ROOT
 
 DEFAULT_OUTPUT = ROOT / "website" / "frontend-react" / "public" / "data" / "website_data.json"
 DEFAULT_DETAILS_OUTPUT = (
@@ -22,6 +22,37 @@ DEFAULT_SCENARIO_OUTPUT = (
     ROOT / "website" / "frontend-react" / "public" / "data" / "scenario_inputs.json"
 )
 DEFAULT_DOWNLOAD_DIR = ROOT / "website" / "frontend-react" / "public" / "downloads"
+
+EU27_MEMBER_COUNTRIES = (
+    "Austria",
+    "Belgium",
+    "Bulgaria",
+    "Croatia",
+    "Cyprus",
+    "Czech Republic",
+    "Denmark",
+    "Estonia",
+    "Finland",
+    "France",
+    "Germany",
+    "Greece",
+    "Hungary",
+    "Ireland",
+    "Italy",
+    "Latvia",
+    "Lithuania",
+    "Luxembourg",
+    "Malta",
+    "Netherlands",
+    "Poland",
+    "Portugal",
+    "Romania",
+    "Slovakia",
+    "Slovenia",
+    "Spain",
+    "Sweden",
+)
+GEM_CITY_FIELD = "Major area (prefecture, district)"
 
 PUBLIC_DATASETS = (
     {
@@ -218,6 +249,32 @@ def _records(frame: pd.DataFrame) -> list[dict[str, Any]]:
         {column: _finite_or_none(value) for column, value in row.items()}
         for row in frame.to_dict(orient="records")
     ]
+
+
+def _plant_city_lookup() -> dict[str, str]:
+    """Assign one GEM major-area label to each operating plant for website search."""
+    columns = ["GEM location ID", "Status", GEM_CITY_FIELD]
+    frame = pd.read_excel(GEM_WORKBOOK, sheet_name="Units", usecols=columns)
+    frame = frame.loc[frame["Status"].astype(str).str.casefold().eq("operating")].copy()
+    frame["city"] = frame[GEM_CITY_FIELD].astype("string").str.strip()
+    missing = frame["city"].str.casefold().isin({"", "nan", "none", "not found"})
+    frame.loc[missing.fillna(True), "city"] = pd.NA
+    valid = frame.dropna(subset=["city"])
+    if valid.empty:
+        return {}
+    ranked = (
+        valid.groupby(["GEM location ID", "city"], dropna=False)
+        .size()
+        .rename("unit_count")
+        .reset_index()
+        .sort_values(
+            ["GEM location ID", "unit_count", "city"],
+            ascending=[True, False, True],
+            kind="stable",
+        )
+        .drop_duplicates("GEM location ID")
+    )
+    return dict(zip(ranked["GEM location ID"].astype(str), ranked["city"].astype(str)))
 
 
 def _sha256_path(path: Path) -> str:
@@ -588,6 +645,7 @@ def build_scenario_payload() -> dict[str, Any]:
     )
     summary = json.loads((OUTPUTS / "result_summary.json").read_text())
     build_manifest = json.loads((OUTPUTS / "build_manifest.json").read_text())
+    city_by_plant = _plant_city_lookup()
 
     resource_lookup: dict[str, dict[str, list[dict[str, Any]]]] = {}
     for row in resources.itertuples(index=False):
@@ -610,6 +668,7 @@ def build_scenario_payload() -> dict[str, Any]:
             "plant_id": row.plant_id,
             "plant_name": row.plant_name,
             "country": row.country,
+            "city": city_by_plant.get(str(row.plant_id)),
             "region": row.region,
             "subregion": row.subregion,
             "latitude": row.latitude,
@@ -667,6 +726,28 @@ def build_scenario_payload() -> dict[str, Any]:
                 "wind_loss_fraction": phase2_spec["wind"]["gross_to_net_loss_fractions"],
                 "stored_energy_share": storage["stored_energy_shares"],
                 "battery_capex_case": list(storage["capex_2025_usd_per_kwh"].keys()),
+            },
+            "geographic_groups": {
+                "eu27": {
+                    "label": "European Union",
+                    "member_countries": list(EU27_MEMBER_COUNTRIES),
+                    "source": (
+                        "European Union, EU countries, 27 member states, accessed "
+                        "11 August 2026; "
+                        "https://european-union.europa.eu/principles-countries-history/"
+                        "eu-countries_en"
+                    ),
+                }
+            },
+            "geography": {
+                "city_source_field": (
+                    f"GEM Global Coal Plant Tracker January 2026: {GEM_CITY_FIELD}"
+                ),
+                "city_assignment": (
+                    "Most frequent non-empty major-area value among operating units at a GEM plant; "
+                    "ties are resolved alphabetically. Plants without a value have no city search "
+                    "option."
+                ),
             },
             "battery": {
                 "duration_hours": storage["central_duration_hours"],
