@@ -95,11 +95,23 @@ def _unit_results() -> pd.DataFrame:
 def test_phase2_config_matches_locked_method() -> None:
     spec = load_phase2_spec()
 
-    assert spec["spatial_resource"]["radii_km"] == [30, 45, 60]
+    assert spec["spatial_resource"]["prespecified_reporting_radii_km"] == [30, 45, 60]
+    assert spec["spatial_resource"]["prespecified_reporting_percentiles"] == [50, 90, 100]
+    assert spec["spatial_resource"]["control_percentile"] == {
+        "minimum": 0,
+        "maximum": 100,
+        "step": 1,
+        "minimum_definition": "P0 is the minimum valid same-country raster cell",
+        "maximum_definition": "P100 is the maximum valid same-country raster cell",
+        "calculation": "direct empirical spatial quantile at every displayed percentile",
+    }
     assert spec["spatial_resource"]["central_radius_km"] == 45
     assert spec["spatial_resource"]["central_cell_statistic"] == "p90"
     assert spec["wind"]["gross_to_net_loss_fractions"] == [0.1, 0.15, 0.2]
     assert spec["battery_storage"]["stored_energy_shares"] == [0.0, 0.25, 0.5, 1.0]
+    assert spec["battery_storage"]["control_capex_2025_usd_per_kwh"]["minimum"] == 111.03
+    assert spec["battery_storage"]["control_capex_2025_usd_per_kwh"]["maximum"] == 359.8
+    assert spec["battery_storage"]["projection_capex_2025_usd_per_kwh"]["2050"]["low"] == 111.025335
 
 
 def test_wind_loss_conversion_is_monotonic() -> None:

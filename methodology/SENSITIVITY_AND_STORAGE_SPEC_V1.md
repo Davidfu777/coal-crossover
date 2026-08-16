@@ -14,23 +14,25 @@ The storage calculation must not add a renewable LCOE to an LCOS that already in
 
 ## 2. Spatial resource sensitivity
 
-### 2.1 Required radii
+### 2.1 Radius control
 
 - Central radius: 45 km.
-- Sensitivity radii: 30 km and 60 km.
-- The public sensitivity grid is therefore `30, 45, 60 km`.
+- Public control range: 30--60 km in 1 km increments.
+- Prespecified reporting slices: 30, 45, and 60 km.
+
+Every displayed radius is calculated directly from the eligible raster cells. The dashboard does not interpolate between the three prespecified reporting slices.
 
 Only valid raster cells in the same country as the coal unit are eligible. A unit with no eligible cell at a requested radius receives an explicit `no_valid_resource_cell` result; it is not assigned a nearest cross-border value.
 
-### 2.2 Required cell statistics
+### 2.2 Resource-percentile control
 
-For every unit, technology, and radius, retain:
+For every unit, technology, and radius, retain the empirical spatial percentiles P0 through P99 in one-percentage-point increments, plus P100. P0 and P100 are defined as the minimum and maximum eligible values. The prespecified reporting slices are:
 
 - `p50`: median valid resource value;
 - `p90`: 90th percentile valid resource value; and
-- `max`: maximum valid resource value.
+- `p100`: maximum valid resource value.
 
-The central result is the same-country P90 at 45 km. P50 and maximum values are diagnostics, not alternative central estimates. The maximum case is an optimistic resource sensitivity and must not be described as a buildable site.
+The central result is the same-country P90 at 45 km. P50 and P100 are formal diagnostics, not alternative central estimates. The wider P0--P100 dashboard range is exploratory: P0 is the least favorable observed cell and P100 is the most favorable observed cell within the selected same-country radius. Neither endpoint should be described as a buildable site. Every displayed percentile is read from the retained empirical response surface rather than interpolated from a smaller set of scenarios.
 
 ## 3. Wind gross-to-net sensitivity
 
@@ -38,7 +40,7 @@ Use:
 
 `wind_net_capacity_factor = wind_gross_capacity_factor * (1 - wind_loss_fraction)`
 
-Required loss fractions are:
+The public control runs from 10% to 20% in one-percentage-point increments. The prespecified reporting slices are:
 
 - 10%: low-loss sensitivity;
 - 15%: central case; and
@@ -46,23 +48,43 @@ Required loss fractions are:
 
 NREL's *Wind Vision* appendices convert gross turbine output to wind-plant net capacity factor with 15% losses for electrical and wake effects. This supports the central value. The model does not treat this generic loss factor as a site-specific wake, curtailment, availability, or interconnection study.
 
+### 3.1 Coal-price sensitivity
+
+The public coal-price control runs from P0 through P100 in one-percentage-point increments. Each value is an empirical percentile of the 36 monthly observations in the unit's assigned World Bank coal benchmark from January 2023 through December 2025. P0 and P100 are the observed minimum and maximum monthly prices. Unit heat rate and assigned all-in O&M remain fixed while this control moves.
+
+The central result uses P50. Formal reporting uses P10, P50, and P90. P0 and P100 are exploratory endpoints and are not alternative central estimates.
+
+### 3.2 Financing and renewable-capital-cost controls
+
+The financing control reduces each country-technology real after-tax WACC by 0--10 percentage points in 0.5-point increments. Adjusted WACC is bounded below at zero:
+
+`adjusted_wacc = max(0, baseline_wacc - reduction_percentage_points / 100)`
+
+The renewable capital-cost control applies a 0.60--1.40 multiplier in 0.05 increments to the source capital cost. Its central value is 1.00. Both controls hold resource, coal-cost, and storage assumptions fixed unless the user changes them separately.
+
 ## 4. Four-hour battery input assumptions
 
 The first storage extension uses a stand-alone, utility-scale, four-hour lithium-ion battery. Longer-duration storage is not part of the v1 central result.
 
-NREL's *Cost Projections for Utility-Scale Battery Storage: 2025 Update* reports the following 2025 projections for a complete four-hour system, stated in constant 2024 USD:
+NREL's *Cost Projections for Utility-Scale Battery Storage: 2025 Update* reports the following projections for a complete four-hour system, stated in constant 2024 USD. The corresponding constant 2025 USD values use the retained World Bank U.S. GDP deflator conversion.
 
-| Case | 2024 USD/kWh | 2025 USD/kWh |
-|---|---:|---:|
-| Low | 295 | 303.263646 |
-| Mid | 321 | 329.991967 |
-| High | 350 | 359.804325 |
+| Projection year | Case | 2024 USD/kWh | 2025 USD/kWh |
+|---|---|---:|---:|
+| 2025 | Low | 295 | 303.263646 |
+| 2025 | Mid | 321 | 329.991967 |
+| 2025 | High | 350 | 359.804325 |
+| 2035 | Low | 147 | 151.117817 |
+| 2035 | Mid | 243 | 249.807003 |
+| 2035 | High | 339 | 348.496189 |
+| 2050 | Low | 108 | 111.025335 |
+| 2050 | Mid | 178 | 182.986200 |
+| 2050 | High | 307 | 315.599794 |
 
 The conversion uses the retained World Bank U.S. GDP deflator values for 2024 and 2025:
 
 `2025 USD factor = 122.361624831936 / 119.027387038617 = 1.028012358133`
 
-The mid case is the central battery capital cost. Low and high cases are reported as cost sensitivities.
+The 2025 mid case is the central battery capital cost. The formal publication tables retain the 2025 low, mid, and high cases. The dashboard exposes a wider exploratory range continuously to the nearest cent, from the 2050 low projection (111.03 USD/kWh) to the 2025 high projection (359.80 USD/kWh), with a default of 329.99 USD/kWh. This span is a set of dated NREL projections, not a confidence interval. Values selected between the anchors are scenario inputs rather than additional NREL forecasts.
 
 Other NREL 2025 assumptions are:
 
@@ -167,10 +189,11 @@ The label `storage_adjusted_crossover` must not be shortened to `firm_replacemen
 The machine-readable output may contain the full deterministic scenario grid. The main report should use prespecified slices so that conclusions are not chosen after inspecting the results:
 
 1. Spatial sensitivity: 30/45/60 km, holding P90 and all other central assumptions fixed.
-2. Resource-statistic sensitivity: P50/P90/max at 45 km.
+2. Resource-statistic sensitivity: P50/P90/P100 at 45 km.
 3. Wind-loss sensitivity: 10%/15%/20%, holding 45 km P90 fixed.
 4. Battery-cost sensitivity: low/mid/high NREL 2025 capital cost, holding the central resource assumptions fixed.
 5. Stored-energy sensitivity: 0%/25%/50%/100%, holding the NREL mid battery cost fixed.
+6. Coal-price sensitivity: P10/P50/P90, holding unit heat rate, assigned all-in O&M, and all renewable assumptions fixed.
 
 ## 9. Validation requirements
 

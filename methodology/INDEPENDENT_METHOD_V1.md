@@ -95,13 +95,13 @@ Table 3.12 reports O&M directly in USD/MWh, so the primary model does not invent
 
 ### 5.1 Geographic rule
 
-The central local-resource scenario uses renewable resource cells within 45 km of the coal unit. This matches the approximately 30-mile local radius used by Coal Cost Crossover 3.0. The required spatial sensitivity uses 30 km, 45 km, and 60 km radii. The 45 km case remains central.
+The central local-resource scenario uses renewable resource cells within 45 km of the coal unit. This matches the approximately 30-mile local radius used by Coal Cost Crossover 3.0. The response surface is calculated directly at each integer radius from 30 km through 60 km; 30 km, 45 km, and 60 km are retained as the prespecified reporting slices. The 45 km case remains central.
 
 Only cells in the same country as the coal unit enter the baseline. Cross-border resources are a separate transmission and market-integration scenario.
 
 ### 5.2 Cell selection
 
-The primary resource value is the 90th percentile of valid cells within the radius, rather than the single maximum pixel. The median and maximum are retained as conservative and optimistic bounds. This limits sensitivity to isolated raster artifacts while still representing selective project siting.
+The primary resource value is the 90th percentile of valid cells within the radius, rather than the single maximum pixel. The retained response surface contains empirical P0--P100 resource values at one-percentage-point increments. P50, P90, and P100 are the prespecified reporting slices. This limits sensitivity to isolated raster artifacts while still representing selective project siting.
 
 This is a resource-potential screen, not a permitted-site analysis. Land availability, protected areas, terrain, interconnection, and project-specific feasibility require later geospatial layers.
 
@@ -210,7 +210,7 @@ The paper reports a deterministic central estimate and an uncertainty result.
 - WACC: IRENA central value, checked against Scientific Data observations and IEA survey ranges where available.
 - Coal price: empirical monthly benchmark distribution.
 - Wind losses: 10%, 15%, and 20%.
-- Spatial resource: median, 90th percentile, and maximum within 30 km, 45 km, and 60 km.
+- Spatial resource: a direct 30--60 km by P0--P100 response surface, with 30/45/60 km and P50/P90/P100 retained for formal reporting.
 - O&M: direct country value, technology median, and fallback source level.
 - Storage extension: NREL 2025 low, mid, and high four-hour battery capital costs and stored-energy shares of 0%, 25%, 50%, and 100%.
 

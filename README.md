@@ -74,6 +74,16 @@ python scripts/build_figures.py
 
 Figures are written to `figures/generated/`; source tables are written to `figures/source_data/`. Each figure also receives a JSON provenance record containing input and output hashes.
 
+## Browser data exports
+
+Create the compact records used by the interactive explorer after completing the dataset build:
+
+```bash
+python -m pipeline.build_website_data
+```
+
+The files are written to `outputs/website_export/` and remain outside version control. Set `COAL_CROSSOVER_WEBSITE_EXPORT_DIR` to write them elsewhere.
+
 ## Release checks
 
 ```bash

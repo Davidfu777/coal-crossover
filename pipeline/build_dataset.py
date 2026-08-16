@@ -12,6 +12,7 @@ import pandas as pd
 from .ingest_coal_cost import (
     assign_coal_cost_inputs,
     load_coal_price_benchmarks,
+    load_coal_price_quantiles,
     load_iea_nea_coal_om,
 )
 from .ingest_gem import build_plant_registry, load_operating_units
@@ -97,6 +98,7 @@ def build(refresh_resources: bool = False) -> dict[str, object]:
     units = load_operating_units()
     plants = build_plant_registry(units)
     coal_benchmarks = load_coal_price_benchmarks()
+    coal_price_quantiles = load_coal_price_quantiles()
     coal_om = load_iea_nea_coal_om()
     coal_costs = assign_coal_cost_inputs(units)
     irena = load_irena_inputs()
@@ -133,6 +135,7 @@ def build(refresh_resources: bool = False) -> dict[str, object]:
     _write_csv(units, source_inputs / "gem_operating_units.csv")
     _write_csv(plants, source_inputs / "gem_operating_plant_registry.csv")
     _write_csv(coal_benchmarks, source_inputs / "world_bank_coal_price_benchmarks.csv")
+    _write_csv(coal_price_quantiles, OUTPUTS / "coal_price_quantiles.csv")
     _write_csv(coal_om, source_inputs / "iea_nea_coal_om_observations.csv")
     _write_csv(renewable_costs, source_inputs / "irena_renewable_cost_inputs_by_plant.csv")
     resource_matches.to_parquet(OUTPUTS / "resource_matches.parquet", index=False)
@@ -200,6 +203,7 @@ def build(refresh_resources: bool = False) -> dict[str, object]:
 
     output_files = [
         OUTPUTS / "resource_matches.parquet",
+        OUTPUTS / "coal_price_quantiles.csv",
         OUTPUTS / "plant_renewable_inputs.parquet",
         OUTPUTS / "unit_results.parquet",
         OUTPUTS / "plant_results.parquet",

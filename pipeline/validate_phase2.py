@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from .paths import OUTPUTS, SOURCES
-from .phase2 import storage_cost_components
+from .phase2 import load_phase2_spec, storage_cost_components
 from .provenance import sha256_file
 
 
@@ -23,6 +23,7 @@ def _allclose(left: pd.Series, right: pd.Series) -> bool:
 
 
 def validate() -> dict[str, object]:
+    spec = load_phase2_spec()
     resources = pd.read_parquet(OUTPUTS / "resource_matches.parquet")
     units = pd.read_parquet(OUTPUTS / "unit_results.parquet")
     renewable = pd.read_parquet(OUTPUTS / "renewable_sensitivity_results.parquet")
@@ -31,8 +32,43 @@ def validate() -> dict[str, object]:
     storage_summary = pd.read_csv(OUTPUTS / "storage_sensitivity_summary.csv")
     checks: dict[str, dict[str, object]] = {}
 
+    radius_control = spec["spatial_resource"]["control_radius_km"]
+    expected_radii = [
+        float(value)
+        for value in range(
+            int(radius_control["minimum"]),
+            int(radius_control["maximum"]) + 1,
+            int(radius_control["step"]),
+        )
+    ]
     radii = sorted(float(value) for value in resources["radius_km"].unique())
-    _record(checks, "resource_radii", radii == [30.0, 45.0, 60.0], observed=radii)
+    _record(
+        checks,
+        "resource_radii",
+        radii == expected_radii,
+        observed=radii,
+        expected=expected_radii,
+    )
+    percentile_control = spec["spatial_resource"]["control_percentile"]
+    expected_percentile_columns = [
+        f"resource_p{value}"
+        for value in range(
+            int(percentile_control["minimum"]),
+            int(percentile_control["maximum"]),
+            int(percentile_control["step"]),
+        )
+    ] + ["resource_max"]
+    missing_percentile_columns = [
+        column for column in expected_percentile_columns if column not in resources.columns
+    ]
+    _record(
+        checks,
+        "resource_percentile_axis",
+        not missing_percentile_columns,
+        minimum=int(percentile_control["minimum"]),
+        maximum=int(percentile_control["maximum"]),
+        missing_columns=missing_percentile_columns,
+    )
     _record(
         checks,
         "same_country_resource_matching",

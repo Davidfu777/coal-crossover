@@ -19,10 +19,17 @@ def sha256(path: Path) -> str:
 
 
 def test_public_download_package_is_complete_and_portable(tmp_path: Path) -> None:
-    manifest = write_public_downloads(tmp_path, "2026-01-01T00:00:00Z", "a" * 64, "b" * 64)
+    manifest = write_public_downloads(
+        tmp_path,
+        "2026-01-01T00:00:00Z",
+        "a" * 64,
+        "b" * 64,
+        "1.4",
+        "c" * 64,
+    )
 
-    assert len(manifest["files"]) == 10
-    assert len({file["file"] for file in manifest["files"]}) == 10
+    assert len(manifest["files"]) == 11
+    assert len({file["file"] for file in manifest["files"]}) == 11
     for file in manifest["files"]:
         path = tmp_path / file["file"]
         assert path.is_file()
@@ -48,3 +55,7 @@ def test_public_download_package_is_complete_and_portable(tmp_path: Path) -> Non
     download_manifest = json.loads((tmp_path / "download_manifest.json").read_text())
     assert download_manifest["method_sha256"] == "a" * 64
     assert download_manifest["source_manifest_sha256"] == "b" * 64
+    assert download_manifest["scenario_definition_version"] == "1.4"
+    assert download_manifest["scenario_definition_sha256"] == "c" * 64
+    assert (tmp_path / "resource_response_surface.parquet").is_file()
+    assert (tmp_path / "coal_price_quantiles.csv").is_file()

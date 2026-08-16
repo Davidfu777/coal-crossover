@@ -31,8 +31,9 @@ def test_phase2_output_artifacts_and_row_counts() -> None:
 def test_phase2_resource_matches_use_locked_radii() -> None:
     resources = pd.read_parquet(OUTPUTS / "resource_matches.parquet")
 
-    assert set(resources["radius_km"]) == {30.0, 45.0, 60.0}
-    assert len(resources) == 2_384 * 2 * 3
+    assert set(resources["radius_km"]) == {float(value) for value in range(30, 61)}
+    assert len(resources) == 2_384 * 2 * 31
+    assert all(f"resource_p{percentile}" in resources for percentile in range(0, 100))
 
 
 def test_phase2_central_scenario_reproduces_baseline() -> None:

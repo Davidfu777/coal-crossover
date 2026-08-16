@@ -1,8 +1,16 @@
 import json
 
+import numpy as np
+import pandas as pd
 import pytest
 
-from pipeline.build_website_data import build_details_payload, build_payload, build_scenario_payload
+from pipeline.build_website_data import (
+    _resource_surface,
+    build_details_payload,
+    build_payload,
+    build_scenario_payload,
+)
+from pipeline.paths import OUTPUTS, ROOT
 
 pytestmark = pytest.mark.generated_data
 
@@ -76,12 +84,45 @@ def test_scenario_payload_contains_complete_model_inputs() -> None:
         == 2_836
     )
     assert payload["metadata"]["baseline"]["resource_radius_km"] == 45
-    assert payload["metadata"]["baseline"]["resource_statistic"] == "p90"
+    assert payload["metadata"]["baseline"]["resource_percentile"] == 90
     assert payload["metadata"]["baseline"]["wind_loss_fraction"] == 0.15
+    assert payload["metadata"]["scenario_definition_version"] == "1.4"
+    surface = payload["metadata"]["resource_surface"]
+    assert surface["shape"] == [2_384, 2, 31, 101]
+    assert surface["radii_km"] == list(range(30, 61))
+    assert surface["resource_percentiles"] == list(range(0, 101))
+    assert len(surface["sha256"]) == 64
+    assert payload["metadata"]["coal_price_quantiles"]["minimum_percentile"] == 0
+    assert payload["metadata"]["coal_price_quantiles"]["maximum_percentile"] == 100
+    assert payload["metadata"]["prespecified_reporting_values"]["coal_cost_percentile"] == [
+        10,
+        50,
+        90,
+    ]
+    battery_control = payload["metadata"]["controls"]["battery_capex_2025_usd_per_kwh"]
+    assert battery_control["minimum"] == 111.03
+    assert battery_control["maximum"] == 359.8
+    assert (
+        payload["metadata"]["battery"]["projection_capex_2025_usd_per_kwh"]["2050"]["low"]
+        == 111.025335
+    )
+    assert payload["metadata"]["baseline"] == {
+        "sample": "grid_power_comparable",
+        "resource_radius_km": 45,
+        "resource_percentile": 90,
+        "wind_loss_fraction": 0.15,
+        "coal_cost_percentile": 50,
+        "wacc_reduction_percentage_points": 0,
+        "renewable_capex_multiplier": 1,
+        "renewable_technology": "least_cost",
+        "stored_energy_share": 0,
+        "battery_capex_2025_usd_per_kwh": 329.99,
+    }
 
     first = payload["plants"][0]
-    assert len(first["solar"]["resources"]) == 3
-    assert len(first["wind"]["resources"]) == 3
+    assert first["resource_index"] == 0
+    assert "resources" not in first["solar"]
+    assert "resources" not in first["wind"]
     assert "city" in first
 
     eu27 = payload["metadata"]["geographic_groups"]["eu27"]
@@ -93,8 +134,67 @@ def test_scenario_payload_contains_complete_model_inputs() -> None:
     )
 
 
+def test_browser_resource_surface_matches_formal_parquet_values() -> None:
+    resources = pd.read_parquet(OUTPUTS / "resource_matches.parquet")
+    plants = pd.read_parquet(
+        OUTPUTS / "plant_results.parquet",
+        columns=["plant_id", "plant_name", "country", "analysis_sample"],
+    )
+    plants = plants.loc[plants["analysis_sample"].eq("expanded_operating_fleet")]
+    plant_ids = (
+        plants.sort_values(["country", "plant_name", "plant_id"])["plant_id"].astype(str).tolist()
+    )
+    spec = json.loads((ROOT / "methodology" / "sensitivity_and_storage_spec_v1.json").read_text())
+    metadata, encoded = _resource_surface(resources, plant_ids, spec)
+    surface = np.frombuffer(encoded, dtype="<f4").reshape(metadata["shape"])
+    source = resources.assign(
+        plant_id=resources["plant_id"].astype(str),
+        radius_km=resources["radius_km"].astype(int),
+    ).set_index(["plant_id", "technology", "radius_km"])
+
+    for plant_index in (0, len(plant_ids) // 2, len(plant_ids) - 1):
+        plant_id = plant_ids[plant_index]
+        for technology_index, technology in enumerate(("solar", "wind")):
+            for radius in (30, 45, 60):
+                radius_index = radius - 30
+                for percentile in (0, 25, 50, 73, 90, 100):
+                    source_column = (
+                        "resource_max" if percentile == 100 else f"resource_p{percentile}"
+                    )
+                    expected = source.loc[(plant_id, technology, radius), source_column]
+                    actual = surface[
+                        plant_index,
+                        technology_index,
+                        radius_index,
+                        percentile,
+                    ]
+                    assert np.isclose(actual, expected, equal_nan=True, rtol=1e-6)
+
+
+def test_browser_coal_curve_reproduces_unit_cost_anchors() -> None:
+    payload = build_scenario_payload()
+    curves = payload["metadata"]["coal_price_quantiles"]["values_usd_per_mmbtu"]
+
+    selected_units = (
+        payload["units"][0],
+        payload["units"][len(payload["units"]) // 2],
+        payload["units"][-1],
+    )
+    for unit in selected_units:
+        curve = curves[unit["coal_price_benchmark"]]
+        for percentile, output_field in (
+            (10, "coal_operating_cost_p10_usd_per_mwh"),
+            (50, "coal_operating_cost_usd_per_mwh"),
+            (90, "coal_operating_cost_p90_usd_per_mwh"),
+        ):
+            price = curve[percentile]
+            recalculated = price * unit["heat_rate_mmbtu_per_mwh"] + unit["coal_om_usd_per_mwh"]
+            assert np.isclose(recalculated, unit[output_field], rtol=1e-10)
+
+
 def test_scenario_payload_is_strict_portable_json() -> None:
     encoded = json.dumps(build_scenario_payload(), allow_nan=False)
 
     assert "/Users/" not in encoded
     assert "capex_2025_usd_per_kwh" in encoded
+    assert "resource_surface.f32" in encoded

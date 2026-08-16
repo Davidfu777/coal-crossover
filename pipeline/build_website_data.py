@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -14,14 +15,16 @@ import pandas as pd
 from pipeline.model import renewable_lcoe
 from pipeline.paths import GEM_WORKBOOK, OUTPUTS, ROOT
 
-DEFAULT_OUTPUT = ROOT / "website" / "frontend-react" / "public" / "data" / "website_data.json"
-DEFAULT_DETAILS_OUTPUT = (
-    ROOT / "website" / "frontend-react" / "public" / "data" / "plant_details.json"
-)
-DEFAULT_SCENARIO_OUTPUT = (
-    ROOT / "website" / "frontend-react" / "public" / "data" / "scenario_inputs.json"
-)
-DEFAULT_DOWNLOAD_DIR = ROOT / "website" / "frontend-react" / "public" / "downloads"
+DEFAULT_EXPORT_ROOT = Path(
+    os.environ.get("COAL_CROSSOVER_WEBSITE_EXPORT_DIR", OUTPUTS / "website_export")
+).expanduser()
+DEFAULT_DATA_DIR = DEFAULT_EXPORT_ROOT / "data"
+DEFAULT_OUTPUT = DEFAULT_DATA_DIR / "website_data.json"
+DEFAULT_DETAILS_OUTPUT = DEFAULT_DATA_DIR / "plant_details.json"
+DEFAULT_SCENARIO_OUTPUT = DEFAULT_DATA_DIR / "scenario_inputs.json"
+DEFAULT_RESOURCE_SURFACE_OUTPUT = DEFAULT_DATA_DIR / "resource_surface.f32"
+DEFAULT_DOWNLOAD_DIR = DEFAULT_EXPORT_ROOT / "downloads"
+DEFAULT_MANIFEST_OUTPUT = DEFAULT_EXPORT_ROOT / "WEBSITE_DATA_MANIFEST.json"
 
 EU27_MEMBER_COUNTRIES = (
     "Austria",
@@ -73,11 +76,19 @@ PUBLIC_DATASETS = (
     },
     {
         "source": "resource_matches.parquet",
-        "file": "resource_matches.csv",
-        "title": "Renewable resource matches",
-        "description": "Same-country solar and wind resource summaries at each tested search radius.",
-        "format": "CSV",
+        "file": "resource_response_surface.parquet",
+        "title": "Renewable resource response surface",
+        "description": "Same-country solar and wind resource quantiles at each integer search radius from 30 to 60 km.",
+        "format": "Parquet",
         "sort": ["plant_id", "technology", "radius_km"],
+    },
+    {
+        "source": "coal_price_quantiles.csv",
+        "file": "coal_price_quantiles.csv",
+        "title": "Coal-price quantiles",
+        "description": "Empirical P0-P100 quantiles of the 2023M01-2025M12 monthly World Bank coal-price benchmarks.",
+        "format": "CSV",
+        "sort": ["coal_price_benchmark", "percentile"],
     },
     {
         "source": "renewable_sensitivity_results.parquet",
@@ -207,6 +218,9 @@ SCENARIO_UNIT_COLUMNS = [
     "coal_operating_cost_usd_per_mwh",
     "coal_operating_cost_p10_usd_per_mwh",
     "coal_operating_cost_p90_usd_per_mwh",
+    "coal_price_benchmark",
+    "heat_rate_mmbtu_per_mwh",
+    "coal_om_usd_per_mwh",
     "coal_price_source_level",
     "coal_om_source_level",
     "combustion_technology",
@@ -325,8 +339,17 @@ def write_public_downloads(
     generated_at_utc: str,
     method_sha256: str,
     source_manifest_sha256: str,
+    scenario_definition_version: str,
+    scenario_definition_sha256: str,
 ) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
+    previous_manifest = output_dir / "download_manifest.json"
+    if previous_manifest.exists():
+        previous_files = json.loads(previous_manifest.read_text()).get("files", [])
+        for record in previous_files:
+            stale_path = output_dir / Path(record["file"]).name
+            if stale_path.is_file():
+                stale_path.unlink()
     files: list[dict[str, Any]] = []
     dictionary_rows: list[dict[str, str]] = []
 
@@ -430,7 +453,9 @@ def write_public_downloads(
         "the website Sources page for providers, releases, retrieval dates, and source notes.\n\n"
         f"Generated: {generated_at_utc}\n"
         f"Method SHA-256: {method_sha256}\n"
-        f"Source manifest SHA-256: {source_manifest_sha256}\n",
+        f"Source manifest SHA-256: {source_manifest_sha256}\n"
+        f"Scenario definition: {scenario_definition_version}\n"
+        f"Scenario definition SHA-256: {scenario_definition_sha256}\n",
         encoding="utf-8",
     )
     files.append(
@@ -449,6 +474,8 @@ def write_public_downloads(
         "currency_basis": "constant 2025 USD",
         "method_sha256": method_sha256,
         "source_manifest_sha256": source_manifest_sha256,
+        "scenario_definition_version": scenario_definition_version,
+        "scenario_definition_sha256": scenario_definition_sha256,
         "files": files,
     }
     manifest_path = output_dir / "download_manifest.json"
@@ -555,6 +582,14 @@ def _resource_scenario_records() -> list[dict[str, Any]]:
         OUTPUTS / "plant_renewable_inputs.parquet",
         columns=RESOURCE_COST_COLUMNS,
     )
+    phase2_spec = json.loads(
+        (ROOT / "methodology" / "sensitivity_and_storage_spec_v1.json").read_text()
+    )
+    resources = resources.loc[
+        resources["radius_km"].isin(
+            phase2_spec["spatial_resource"]["prespecified_reporting_radii_km"]
+        )
+    ].copy()
     resources = resources.merge(
         costs,
         on=["plant_id", "technology"],
@@ -634,7 +669,74 @@ def build_details_payload() -> dict[str, Any]:
     }
 
 
-def build_scenario_payload() -> dict[str, Any]:
+def _resource_surface(
+    resources: pd.DataFrame,
+    plant_ids: list[str],
+    phase2_spec: dict[str, Any],
+    file_name: str = DEFAULT_RESOURCE_SURFACE_OUTPUT.name,
+) -> tuple[dict[str, Any], bytes]:
+    radius_control = phase2_spec["spatial_resource"]["control_radius_km"]
+    percentile_control = phase2_spec["spatial_resource"]["control_percentile"]
+    radii = list(
+        range(
+            int(radius_control["minimum"]),
+            int(radius_control["maximum"]) + 1,
+            int(radius_control["step"]),
+        )
+    )
+    percentiles = list(
+        range(
+            int(percentile_control["minimum"]),
+            int(percentile_control["maximum"]),
+            int(percentile_control["step"]),
+        )
+    ) + [100]
+    technologies = ["solar", "wind"]
+    expected = pd.MultiIndex.from_product(
+        [plant_ids, technologies, radii],
+        names=["plant_id", "technology", "radius_km"],
+    )
+    indexed = resources.assign(
+        plant_id=resources["plant_id"].astype(str),
+        radius_km=resources["radius_km"].astype(int),
+    ).set_index(["plant_id", "technology", "radius_km"])
+    if indexed.index.has_duplicates:
+        raise ValueError(
+            "Resource response surface contains duplicate plant/technology/radius rows"
+        )
+    missing = expected.difference(indexed.index)
+    extra = indexed.index.difference(expected)
+    if len(missing) or len(extra):
+        raise ValueError(
+            "Resource response surface does not match its declared axes: "
+            f"{len(missing)} missing, {len(extra)} extra"
+        )
+    indexed = indexed.reindex(expected)
+    columns = [f"resource_p{value}" for value in percentiles[:-1]] + ["resource_max"]
+    values = indexed[columns].to_numpy(dtype="<f4", copy=True)
+    values = values.reshape(len(plant_ids), len(technologies), len(radii), len(percentiles))
+    encoded = values.tobytes(order="C")
+    metadata = {
+        "file": file_name,
+        "format": "raw IEEE-754 float32",
+        "dtype": "float32",
+        "byte_order": "little-endian",
+        "layout": "C",
+        "dimension_order": ["plant", "technology", "radius_km", "resource_percentile"],
+        "shape": list(values.shape),
+        "technologies": technologies,
+        "radii_km": radii,
+        "resource_percentiles": percentiles,
+        "missing_value": "NaN",
+        "size_bytes": len(encoded),
+        "sha256": hashlib.sha256(encoded).hexdigest(),
+    }
+    return metadata, encoded
+
+
+def build_scenario_payload(
+    resource_surface_metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Return the compact model inputs used by the browser scenario engine."""
     units = pd.read_parquet(OUTPUTS / "unit_results.parquet", columns=SCENARIO_UNIT_COLUMNS)
     plants = pd.read_parquet(OUTPUTS / "plant_results.parquet", columns=PLANT_COLUMNS)
@@ -647,23 +749,18 @@ def build_scenario_payload() -> dict[str, Any]:
     build_manifest = json.loads((OUTPUTS / "build_manifest.json").read_text())
     city_by_plant = _plant_city_lookup()
 
-    resource_lookup: dict[str, dict[str, list[dict[str, Any]]]] = {}
-    for row in resources.itertuples(index=False):
-        plant_resources = resource_lookup.setdefault(str(row.plant_id), {"solar": [], "wind": []})
-        plant_resources[str(row.technology)].append(
-            {
-                "radius_km": _finite_or_none(row.radius_km),
-                "p50": _finite_or_none(row.resource_p50),
-                "p90": _finite_or_none(row.resource_p90),
-                "max": _finite_or_none(row.resource_max),
-                "valid_cell_count": _finite_or_none(row.valid_cell_count),
-                "resource_units": row.resource_units,
-                "resource_raster": row.resource_raster,
-            }
-        )
+    ordered_plants = plants.sort_values(["country", "plant_name", "plant_id"]).copy()
+    plant_ids = ordered_plants["plant_id"].astype(str).tolist()
+    if resource_surface_metadata is None:
+        resource_surface_metadata, _ = _resource_surface(resources, plant_ids, phase2_spec)
+    coal_quantiles = pd.read_csv(OUTPUTS / "coal_price_quantiles.csv")
+    coal_price_curves = {
+        benchmark: frame.sort_values("percentile")["coal_price_usd_per_mmbtu"].tolist()
+        for benchmark, frame in coal_quantiles.groupby("coal_price_benchmark", sort=True)
+    }
 
     plant_records: list[dict[str, Any]] = []
-    for row in plants.sort_values(["country", "plant_name", "plant_id"]).itertuples(index=False):
+    for resource_index, row in enumerate(ordered_plants.itertuples(index=False)):
         record = {
             "plant_id": row.plant_id,
             "plant_name": row.plant_name,
@@ -673,6 +770,7 @@ def build_scenario_payload() -> dict[str, Any]:
             "subregion": row.subregion,
             "latitude": row.latitude,
             "longitude": row.longitude,
+            "resource_index": resource_index,
             "solar": {
                 "capex_usd_per_kw": row.solar_capex_usd_per_kw,
                 "om_usd_per_kw_year": row.solar_om_usd_per_kw_year,
@@ -681,7 +779,6 @@ def build_scenario_payload() -> dict[str, Any]:
                 "capex_source_level": row.solar_capex_source_level,
                 "wacc_source_level": row.solar_wacc_source_level,
                 "capex_geography_used": row.solar_capex_geography_used,
-                "resources": resource_lookup[str(row.plant_id)]["solar"],
             },
             "wind": {
                 "capex_usd_per_kw": row.wind_capex_usd_per_kw,
@@ -691,7 +788,6 @@ def build_scenario_payload() -> dict[str, Any]:
                 "capex_source_level": row.wind_capex_source_level,
                 "wacc_source_level": row.wind_wacc_source_level,
                 "capex_geography_used": row.wind_capex_geography_used,
-                "resources": resource_lookup[str(row.plant_id)]["wind"],
             },
         }
         plant_records.append(
@@ -707,25 +803,63 @@ def build_scenario_payload() -> dict[str, Any]:
             "generated_at_utc": summary["generated_at_utc"],
             "currency_basis": "constant 2025 USD",
             "method_sha256": build_manifest["method_file"]["sha256"],
+            "scenario_definition_version": phase2_spec["version"],
+            "scenario_definition_sha256": build_manifest["phase2_method_file"]["sha256"],
             "source_manifest_sha256": build_manifest["source_manifest"]["sha256"],
+            "resource_surface": resource_surface_metadata,
+            "coal_price_quantiles": {
+                "minimum_percentile": phase2_spec["coal_operating_cost"]["control_percentile"][
+                    "minimum"
+                ],
+                "maximum_percentile": phase2_spec["coal_operating_cost"]["control_percentile"][
+                    "maximum"
+                ],
+                "step": phase2_spec["coal_operating_cost"]["control_percentile"]["step"],
+                "values_usd_per_mmbtu": coal_price_curves,
+                "source": ("World Bank Commodity Price Data (Pink Sheet), monthly 2023M01-2025M12"),
+                "quantile_method": "linear interpolation of the empirical monthly distribution",
+            },
             "baseline": {
                 "sample": "grid_power_comparable",
                 "resource_radius_km": phase2_spec["spatial_resource"]["central_radius_km"],
-                "resource_statistic": phase2_spec["spatial_resource"]["central_cell_statistic"],
+                "resource_percentile": 90,
                 "wind_loss_fraction": phase2_spec["wind"]["central_loss_fraction"],
-                "coal_cost_case": "central",
-                "wacc_adjustment_pp": 0,
+                "coal_cost_percentile": phase2_spec["coal_operating_cost"]["central_percentile"],
+                "wacc_reduction_percentage_points": 0,
                 "renewable_capex_multiplier": 1,
                 "renewable_technology": "least_cost",
                 "stored_energy_share": 0,
-                "battery_capex_case": storage["central_capex_case"],
+                "battery_capex_2025_usd_per_kwh": round(
+                    storage["capex_2025_usd_per_kwh"][storage["central_capex_case"]], 2
+                ),
             },
-            "allowed_values": {
-                "resource_radius_km": phase2_spec["spatial_resource"]["radii_km"],
-                "resource_statistic": phase2_spec["spatial_resource"]["cell_statistics"],
+            "prespecified_reporting_values": {
+                "resource_radius_km": phase2_spec["spatial_resource"][
+                    "prespecified_reporting_radii_km"
+                ],
+                "resource_percentile": phase2_spec["spatial_resource"][
+                    "prespecified_reporting_percentiles"
+                ],
                 "wind_loss_fraction": phase2_spec["wind"]["gross_to_net_loss_fractions"],
+                "coal_cost_percentile": phase2_spec["coal_operating_cost"][
+                    "prespecified_reporting_percentiles"
+                ],
                 "stored_energy_share": storage["stored_energy_shares"],
-                "battery_capex_case": list(storage["capex_2025_usd_per_kwh"].keys()),
+                "battery_capex_2025_usd_per_kwh": [
+                    round(value, 2) for value in storage["capex_2025_usd_per_kwh"].values()
+                ],
+            },
+            "controls": {
+                "resource_radius_km": phase2_spec["spatial_resource"]["control_radius_km"],
+                "resource_percentile": phase2_spec["spatial_resource"]["control_percentile"],
+                "wind_loss_fraction": phase2_spec["wind"]["control_loss_fraction"],
+                "coal_cost_percentile": phase2_spec["coal_operating_cost"]["control_percentile"],
+                "wacc_reduction_percentage_points": phase2_spec["financing"][
+                    "wacc_reduction_percentage_points"
+                ],
+                "renewable_capex_multiplier": phase2_spec["renewable_capex"]["multiplier"],
+                "stored_energy_share": storage["control_stored_energy_share"],
+                "battery_capex_2025_usd_per_kwh": storage["control_capex_2025_usd_per_kwh"],
             },
             "geographic_groups": {
                 "eu27": {
@@ -752,6 +886,7 @@ def build_scenario_payload() -> dict[str, Any]:
             "battery": {
                 "duration_hours": storage["central_duration_hours"],
                 "capex_2025_usd_per_kwh": storage["capex_2025_usd_per_kwh"],
+                "projection_capex_2025_usd_per_kwh": storage["projection_capex_2025_usd_per_kwh"],
                 "fixed_om_fraction": storage["fixed_om_fraction_of_capex_per_kw_year"],
                 "lifetime_years": storage["project_life_years"],
                 "round_trip_efficiency": storage["round_trip_efficiency"],
@@ -778,8 +913,18 @@ def write_payload(
     output_path: Path,
     details_output_path: Path = DEFAULT_DETAILS_OUTPUT,
     scenario_output_path: Path = DEFAULT_SCENARIO_OUTPUT,
+    resource_surface_output_path: Path = DEFAULT_RESOURCE_SURFACE_OUTPUT,
+    download_dir: Path = DEFAULT_DOWNLOAD_DIR,
+    manifest_output_path: Path = DEFAULT_MANIFEST_OUTPUT,
 ) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    for path in (
+        output_path,
+        details_output_path,
+        scenario_output_path,
+        resource_surface_output_path,
+        manifest_output_path,
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
     payload = build_payload()
     encoded = json.dumps(
         payload, ensure_ascii=True, separators=(",", ":"), allow_nan=False
@@ -795,7 +940,28 @@ def write_payload(
     ).encode()
     details_output_path.write_bytes(details_encoded)
 
-    scenario_payload = build_scenario_payload()
+    resources = pd.read_parquet(OUTPUTS / "resource_matches.parquet")
+    scenario_plants = pd.read_parquet(
+        OUTPUTS / "plant_results.parquet",
+        columns=["analysis_sample", "country", "plant_name", "plant_id"],
+    )
+    scenario_plant_ids = (
+        scenario_plants.loc[scenario_plants["analysis_sample"].eq("expanded_operating_fleet")]
+        .sort_values(["country", "plant_name", "plant_id"])["plant_id"]
+        .astype(str)
+        .tolist()
+    )
+    phase2_spec = json.loads(
+        (ROOT / "methodology" / "sensitivity_and_storage_spec_v1.json").read_text()
+    )
+    resource_surface_metadata, resource_surface_encoded = _resource_surface(
+        resources,
+        scenario_plant_ids,
+        phase2_spec,
+        resource_surface_output_path.name,
+    )
+    resource_surface_output_path.write_bytes(resource_surface_encoded)
+    scenario_payload = build_scenario_payload(resource_surface_metadata)
     scenario_encoded = json.dumps(
         scenario_payload,
         ensure_ascii=True,
@@ -805,10 +971,12 @@ def write_payload(
     scenario_output_path.write_bytes(scenario_encoded)
 
     download_manifest = write_public_downloads(
-        DEFAULT_DOWNLOAD_DIR,
+        download_dir,
         payload["metadata"]["generated_at_utc"],
         payload["metadata"]["method_sha256"],
         payload["metadata"]["source_manifest_sha256"],
+        scenario_payload["metadata"]["scenario_definition_version"],
+        scenario_payload["metadata"]["scenario_definition_sha256"],
     )
 
     digest = hashlib.sha256(encoded).hexdigest()
@@ -835,18 +1003,22 @@ def write_payload(
                 "size_bytes": len(scenario_encoded),
                 "sha256": hashlib.sha256(scenario_encoded).hexdigest(),
             },
+            {
+                "path": str(resource_surface_output_path),
+                "size_bytes": len(resource_surface_encoded),
+                "sha256": resource_surface_metadata["sha256"],
+            },
         ]
         + [
             {
-                "path": str(DEFAULT_DOWNLOAD_DIR / file["file"]),
+                "path": str(download_dir / file["file"]),
                 "size_bytes": file["size_bytes"],
                 "sha256": file["sha256"],
             }
             for file in download_manifest["files"]
         ],
     }
-    manifest_path = ROOT / "website" / "WEBSITE_DATA_MANIFEST.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    manifest_output_path.write_text(json.dumps(manifest, indent=2) + "\n")
 
 
 def main() -> None:
@@ -854,8 +1026,22 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--details-output", type=Path, default=DEFAULT_DETAILS_OUTPUT)
     parser.add_argument("--scenario-output", type=Path, default=DEFAULT_SCENARIO_OUTPUT)
+    parser.add_argument(
+        "--resource-surface-output",
+        type=Path,
+        default=DEFAULT_RESOURCE_SURFACE_OUTPUT,
+    )
+    parser.add_argument("--download-dir", type=Path, default=DEFAULT_DOWNLOAD_DIR)
+    parser.add_argument("--manifest-output", type=Path, default=DEFAULT_MANIFEST_OUTPUT)
     args = parser.parse_args()
-    write_payload(args.output, args.details_output, args.scenario_output)
+    write_payload(
+        args.output,
+        args.details_output,
+        args.scenario_output,
+        args.resource_surface_output,
+        args.download_dir,
+        args.manifest_output,
+    )
 
 
 if __name__ == "__main__":

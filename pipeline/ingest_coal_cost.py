@@ -11,6 +11,7 @@ from .paths import IEA_NEA_WORKBOOK, PINK_SHEET, US_GDP_DEFLATOR
 MMBTU_PER_MT_AT_6000_KCAL_PER_KG = 6000 * 1000 * 3.968320719 / 1_000_000
 PINK_SHEET_START = "2023M01"
 PINK_SHEET_END = "2025M12"
+COAL_PRICE_PERCENTILES = tuple(range(0, 101))
 
 
 def usd_2018_to_2025_factor() -> float:
@@ -21,7 +22,7 @@ def usd_2018_to_2025_factor() -> float:
     return float(united_states.loc[2025] / united_states.loc[2018])
 
 
-def load_coal_price_benchmarks() -> pd.DataFrame:
+def _monthly_coal_prices_usd_per_mmbtu() -> pd.DataFrame:
     raw = pd.read_excel(PINK_SHEET, sheet_name="Monthly Prices", header=4)
     date_column = raw.columns[0]
     prices = raw[[date_column, "Coal, Australian", "Coal, South African **"]].copy()
@@ -35,13 +36,45 @@ def load_coal_price_benchmarks() -> pd.DataFrame:
     prices["blend_usd_per_mt"] = prices[["australia_usd_per_mt", "south_africa_usd_per_mt"]].mean(
         axis=1
     )
-    rows: list[dict[str, object]] = []
+    result = pd.DataFrame(index=prices.index)
     for benchmark, column in {
         "australia": "australia_usd_per_mt",
         "south_africa": "south_africa_usd_per_mt",
         "australia_south_africa_blend": "blend_usd_per_mt",
     }.items():
-        values = prices[column] / MMBTU_PER_MT_AT_6000_KCAL_PER_KG
+        result[benchmark] = prices[column] / MMBTU_PER_MT_AT_6000_KCAL_PER_KG
+    return result
+
+
+def load_coal_price_quantiles(
+    percentiles: tuple[int, ...] = COAL_PRICE_PERCENTILES,
+) -> pd.DataFrame:
+    prices = _monthly_coal_prices_usd_per_mmbtu()
+    rows: list[dict[str, object]] = []
+    for benchmark in prices.columns:
+        values = prices[benchmark]
+        for percentile in percentiles:
+            rows.append(
+                {
+                    "coal_price_benchmark": benchmark,
+                    "percentile": int(percentile),
+                    "coal_price_usd_per_mmbtu": float(
+                        values.quantile(percentile / 100, interpolation="linear")
+                    ),
+                    "coal_price_months": int(values.count()),
+                    "coal_price_window": f"{PINK_SHEET_START}-{PINK_SHEET_END}",
+                    "quantile_method": "linear interpolation of the empirical monthly distribution",
+                    "coal_price_source": "World Bank Commodity Price Data (Pink Sheet)",
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def load_coal_price_benchmarks() -> pd.DataFrame:
+    prices = _monthly_coal_prices_usd_per_mmbtu()
+    rows: list[dict[str, object]] = []
+    for benchmark in prices.columns:
+        values = prices[benchmark]
         rows.append(
             {
                 "coal_price_benchmark": benchmark,

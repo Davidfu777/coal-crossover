@@ -23,7 +23,23 @@ from .phase2 import load_phase2_spec
 EARTH_RADIUS_KM = 6371.0088
 _PHASE2_SPEC = load_phase2_spec()
 CENTRAL_RADIUS_KM = float(_PHASE2_SPEC["spatial_resource"]["central_radius_km"])
-RESOURCE_RADII_KM = tuple(float(value) for value in _PHASE2_SPEC["spatial_resource"]["radii_km"])
+_RADIUS_CONTROL = _PHASE2_SPEC["spatial_resource"]["control_radius_km"]
+RESOURCE_RADII_KM = tuple(
+    float(value)
+    for value in range(
+        int(_RADIUS_CONTROL["minimum"]),
+        int(_RADIUS_CONTROL["maximum"]) + 1,
+        int(_RADIUS_CONTROL["step"]),
+    )
+)
+_PERCENTILE_CONTROL = _PHASE2_SPEC["spatial_resource"]["control_percentile"]
+RESOURCE_PERCENTILES = tuple(
+    range(
+        int(_PERCENTILE_CONTROL["minimum"]),
+        int(_PERCENTILE_CONTROL["maximum"]),
+        int(_PERCENTILE_CONTROL["step"]),
+    )
+)
 CENTRAL_WIND_LOSS_FRACTION = float(_PHASE2_SPEC["wind"]["central_loss_fraction"])
 
 
@@ -177,23 +193,31 @@ def sample_resource_raster(
                     values = grid_values[grid_distances <= radius_km]
                 count = int(len(values))
                 if count == 0:
-                    p50 = p90 = maximum = np.nan
+                    quantile_values = np.full(len(RESOURCE_PERCENTILES), np.nan)
+                    maximum = np.nan
                 else:
-                    p50, p90 = np.quantile(values, [0.50, 0.90])
+                    quantile_values = np.quantile(
+                        values,
+                        np.asarray(RESOURCE_PERCENTILES, dtype=float) / 100,
+                        method="linear",
+                    )
                     maximum = float(values.max())
-                records.append(
+                record = {
+                    "plant_id": plant.plant_id,
+                    "technology": technology,
+                    "radius_km": float(radius_km),
+                    "resource_max": float(maximum),
+                    "valid_cell_count": count,
+                    "same_country_only": True,
+                    "resource_raster": raster_path.name,
+                }
+                record.update(
                     {
-                        "plant_id": plant.plant_id,
-                        "technology": technology,
-                        "radius_km": float(radius_km),
-                        "resource_p50": float(p50),
-                        "resource_p90": float(p90),
-                        "resource_max": float(maximum),
-                        "valid_cell_count": count,
-                        "same_country_only": True,
-                        "resource_raster": raster_path.name,
+                        f"resource_p{percentile}": float(value)
+                        for percentile, value in zip(RESOURCE_PERCENTILES, quantile_values)
                     }
                 )
+                records.append(record)
     return pd.DataFrame(records)
 
 

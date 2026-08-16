@@ -1,18 +1,65 @@
 {
-  "version": "1.0",
+  "version": "1.4",
   "status": "adopted_for_implementation",
   "baseline_definition": "min(solar_lcoe, wind_lcoe) < coal_operating_cost_floor",
   "spatial_resource": {
     "same_country_only": true,
-    "radii_km": [30, 45, 60],
+    "prespecified_reporting_radii_km": [30, 45, 60],
+    "control_radius_km": {
+      "minimum": 30,
+      "maximum": 60,
+      "step": 1,
+      "calculation": "direct raster extraction at every displayed radius"
+    },
     "central_radius_km": 45,
-    "cell_statistics": ["p50", "p90", "max"],
+    "prespecified_reporting_percentiles": [50, 90, 100],
+    "control_percentile": {
+      "minimum": 0,
+      "maximum": 100,
+      "step": 1,
+      "minimum_definition": "P0 is the minimum valid same-country raster cell",
+      "maximum_definition": "P100 is the maximum valid same-country raster cell",
+      "calculation": "direct empirical spatial quantile at every displayed percentile"
+    },
     "central_cell_statistic": "p90"
   },
   "wind": {
     "gross_to_net_loss_fractions": [0.1, 0.15, 0.2],
+    "control_loss_fraction": {
+      "minimum": 0.1,
+      "maximum": 0.2,
+      "step": 0.01
+    },
     "central_loss_fraction": 0.15,
     "formula": "wind_net_capacity_factor = wind_gross_capacity_factor * (1 - wind_loss_fraction)"
+  },
+  "coal_operating_cost": {
+    "prespecified_reporting_percentiles": [10, 50, 90],
+    "control_percentile": {
+      "minimum": 0,
+      "maximum": 100,
+      "step": 1,
+      "calculation": "empirical percentile of monthly World Bank coal benchmark prices from 2023M01 through 2025M12; P0 and P100 are the observed minimum and maximum monthly benchmark prices; unit heat rate and assigned all-in O&M remain fixed"
+    },
+    "central_percentile": 50
+  },
+  "financing": {
+    "wacc_reduction_percentage_points": {
+      "minimum": 0,
+      "maximum": 10,
+      "step": 0.5,
+      "floor": 0,
+      "formula": "adjusted_wacc = max(0, baseline_wacc - reduction_percentage_points / 100)"
+    }
+  },
+  "renewable_capex": {
+    "multiplier": {
+      "minimum": 0.6,
+      "maximum": 1.4,
+      "step": 0.05,
+      "central": 1.0,
+      "formula": "scenario_capex = source_capex * multiplier"
+    }
   },
   "battery_storage": {
     "scope": "separate_sensitivity_layer",
@@ -20,11 +67,33 @@
     "duration_hours": [4],
     "central_duration_hours": 4,
     "stored_energy_shares": [0.0, 0.25, 0.5, 1.0],
+    "control_stored_energy_share": {
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "step": 0.01
+    },
     "capex_source": "NREL/TP-6A40-93281",
     "capex_2024_usd_per_kwh": {
       "low": 295.0,
       "mid": 321.0,
       "high": 350.0
+    },
+    "projection_capex_2024_usd_per_kwh": {
+      "2025": {
+        "low": 295.0,
+        "mid": 321.0,
+        "high": 350.0
+      },
+      "2035": {
+        "low": 147.0,
+        "mid": 243.0,
+        "high": 339.0
+      },
+      "2050": {
+        "low": 108.0,
+        "mid": 178.0,
+        "high": 307.0
+      }
     },
     "usd_conversion": {
       "source": "World Bank NY.GDP.DEFL.ZS, United States",
@@ -39,7 +108,33 @@
       "mid": 329.991967,
       "high": 359.804325
     },
+    "projection_capex_2025_usd_per_kwh": {
+      "2025": {
+        "low": 303.263646,
+        "mid": 329.991967,
+        "high": 359.804325
+      },
+      "2035": {
+        "low": 151.117817,
+        "mid": 249.807003,
+        "high": 348.496189
+      },
+      "2050": {
+        "low": 111.025335,
+        "mid": 182.9862,
+        "high": 315.599794
+      }
+    },
     "central_capex_case": "mid",
+    "control_capex_2025_usd_per_kwh": {
+      "minimum": 111.03,
+      "maximum": 359.8,
+      "step": 0.01,
+      "display_precision": 2,
+      "minimum_anchor": "NREL 2050 low projection for a complete four-hour system",
+      "maximum_anchor": "NREL 2025 high projection for a complete four-hour system",
+      "calculation": "exploratory dashboard envelope in constant 2025 USD/kWh to the nearest cent; it is not a confidence interval; formal sensitivity tables retain the NREL 2025 low/mid/high cases at full conversion precision"
+    },
     "fixed_om_fraction_of_capex_per_kw_year": 0.04,
     "variable_om_usd_per_mwh": 0.0,
     "project_life_years": 15,

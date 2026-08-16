@@ -12,7 +12,7 @@ from pipeline.resources import RESOURCE_RADII_KM, sample_resource_raster
 
 
 def test_default_resource_radii_match_phase2_contract() -> None:
-    assert RESOURCE_RADII_KM == (30.0, 45.0, 60.0)
+    assert RESOURCE_RADII_KM == tuple(float(value) for value in range(30, 61))
 
 
 def test_resource_sampler_respects_radius_and_country(tmp_path: Path) -> None:
@@ -55,6 +55,9 @@ def test_resource_sampler_respects_radius_and_country(tmp_path: Path) -> None:
     assert nearest["resource_p90"] == 12
     assert 1 < radius["valid_cell_count"] < 25
     assert radius["resource_p50"] == 12
+    assert all(f"resource_p{percentile}" in result for percentile in range(0, 100))
+    assert radius["resource_p0"] <= radius["resource_p50"]
+    assert radius["resource_max"] >= radius["resource_p99"]
 
 
 def test_out_of_raster_site_is_recorded_as_missing(tmp_path: Path) -> None:

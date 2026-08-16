@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import tempfile
@@ -17,7 +18,7 @@ from typing import Any
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUTS = ROOT / "outputs"
+OUTPUTS = Path(os.environ.get("COAL_CROSSOVER_OUTPUT_DIR", ROOT / "outputs")).expanduser()
 METHODOLOGY = ROOT / "methodology"
 SOURCES = ROOT / "sources"
 RELEASES = ROOT / "releases"
@@ -74,9 +75,17 @@ RECORDS = (
         "resource_matches.parquet",
         "data/core/resource_matches.parquet",
         "Renewable resource matches",
-        "Same-country solar and wind resource statistics around each plant for 30, 45, and 60 km search radii.",
+        "Same-country solar and wind resource percentiles around each plant at every integer search radius from 30 to 60 km.",
         "core",
         ("plant_id", "technology", "radius_km"),
+    ),
+    Record(
+        "coal_price_quantiles.csv",
+        "data/sensitivity/coal_price_quantiles.csv",
+        "Coal-price quantiles",
+        "Empirical P0-P100 quantiles of the 2023M01-2025M12 monthly World Bank coal-price benchmarks used by the coal-cost control.",
+        "sensitivity",
+        ("coal_price_benchmark", "percentile"),
     ),
     Record(
         "renewable_sensitivity_results.parquet",
@@ -296,9 +305,11 @@ EXACT_DEFINITIONS = {
     "resource_radius_km": "Renewable-resource search radius used in the scenario.",
     "valid_cell_count": "Number of valid same-country resource cells in the search area.",
     "same_country_only": "Whether resource cells were restricted to the plant's country.",
-    "resource_p50": "Median resource value among valid cells.",
-    "resource_p90": "90th-percentile resource value among valid cells.",
+    "resource_p50": "Resource value at empirical percentile P50 among valid same-country cells.",
+    "resource_p90": "Resource value at empirical percentile P90 among valid same-country cells.",
     "resource_max": "Maximum resource value among valid cells.",
+    "percentile": "Empirical percentile represented by the record.",
+    "quantile_method": "Method used to calculate the empirical quantile.",
     "capacity_factor_p50": "Capacity factor derived from the median resource value.",
     "capacity_factor_p90": "Capacity factor derived from the 90th-percentile resource value.",
     "capacity_factor_max": "Capacity factor derived from the maximum resource value.",
@@ -402,6 +413,14 @@ def unit_for(column: str) -> str:
 def _base_definition(column: str) -> tuple[str, str]:
     if column in EXACT_DEFINITIONS:
         return EXACT_DEFINITIONS[column], "controlled definition"
+
+    resource_percentile = re.fullmatch(r"resource_p([0-9]|[1-9][0-9])", column)
+    if resource_percentile:
+        percentile = int(resource_percentile.group(1))
+        return (
+            f"Resource value at empirical percentile P{percentile} among valid same-country cells.",
+            "controlled definition",
+        )
 
     for technology in ("solar", "wind"):
         prefix = f"{technology}_"
@@ -629,7 +648,7 @@ This package contains unit- and plant-level records for comparing the modeled go
 
 - 6,580 operating generating units at 2,384 plants in 73 countries.
 - A primary grid-power-comparable sample and an expanded operating-fleet sample.
-- Local solar and wind resource matches at 30, 45, and 60 km.
+- Local solar and wind resource response surfaces at every integer radius from 30 to 60 km and every empirical percentile from P0 to P100.
 - Central cost and financing assumptions plus resource, wind-loss, coal-price, and storage sensitivities.
 - Costs expressed in constant 2025 USD unless a field explicitly identifies another basis.
 

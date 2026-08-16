@@ -268,7 +268,7 @@ def build_renewable_sensitivity_results(
     central_statistic = spec["spatial_resource"]["central_cell_statistic"]
     central_loss = float(spec["wind"]["central_loss_fraction"])
     scenarios: list[tuple[str, str, float, str, float]] = []
-    for radius in spec["spatial_resource"]["radii_km"]:
+    for radius in spec["spatial_resource"]["prespecified_reporting_radii_km"]:
         scenarios.append(
             (
                 f"spatial_r{int(radius)}_p90",
@@ -278,7 +278,8 @@ def build_renewable_sensitivity_results(
                 central_loss,
             )
         )
-    for statistic in spec["spatial_resource"]["cell_statistics"]:
+    for percentile in spec["spatial_resource"]["prespecified_reporting_percentiles"]:
+        statistic = "max" if percentile == 100 else f"p{percentile}"
         scenarios.append(
             (
                 f"resource_r{int(central_radius)}_{statistic}",
