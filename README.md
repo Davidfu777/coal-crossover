@@ -84,6 +84,12 @@ python -m pipeline.build_website_data
 
 The files are written to `outputs/website_export/` and remain outside version control. Set `COAL_CROSSOVER_WEBSITE_EXPORT_DIR` to write them elsewhere.
 
+## Reporting samples
+
+The release distinguishes two operating-fleet samples. `grid_power_comparable` contains 2,836 units at 1,056 plants and excludes units identified as captive or combined heat and power. `expanded_operating_fleet` contains all 6,580 operating units at 2,384 plants.
+
+The interactive explorer opens with the expanded sample so that users can inspect the full operating fleet. Unless stated otherwise, manuscript summary statistics and prespecified validation results use `grid_power_comparable`.
+
 ## Release checks
 
 ```bash
