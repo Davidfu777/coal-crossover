@@ -1,3 +1,4 @@
+import gzip
 import json
 
 import numpy as np
@@ -92,6 +93,11 @@ def test_scenario_payload_contains_complete_model_inputs() -> None:
     assert surface["radii_km"] == list(range(30, 61))
     assert surface["resource_percentiles"] == list(range(0, 101))
     assert len(surface["sha256"]) == 64
+    assert surface["slices"]["shape"] == [2_384, 2, 101]
+    assert set(surface["slices"]["files"]) == {str(value) for value in range(30, 61)}
+    assert all(
+        len(file_metadata["sha256"]) == 64 for file_metadata in surface["slices"]["files"].values()
+    )
     assert payload["metadata"]["coal_price_quantiles"]["minimum_percentile"] == 0
     assert payload["metadata"]["coal_price_quantiles"]["maximum_percentile"] == 100
     assert payload["metadata"]["prespecified_reporting_values"]["coal_cost_percentile"] == [
@@ -198,3 +204,18 @@ def test_scenario_payload_is_strict_portable_json() -> None:
     assert "/Users/" not in encoded
     assert "capex_2025_usd_per_kwh" in encoded
     assert "resource_surface.f32" in encoded
+
+
+def test_compressed_scenario_payload_is_deterministic_and_lossless() -> None:
+    encoded = json.dumps(
+        build_scenario_payload(),
+        ensure_ascii=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode()
+    first = gzip.compress(encoded, compresslevel=9, mtime=0)
+    second = gzip.compress(encoded, compresslevel=9, mtime=0)
+
+    assert first == second
+    assert gzip.decompress(first) == encoded
+    assert len(first) < len(encoded) // 10

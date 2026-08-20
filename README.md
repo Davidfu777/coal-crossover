@@ -84,6 +84,11 @@ python -m pipeline.build_website_data
 
 The files are written to `outputs/website_export/` and remain outside version control. Set `COAL_CROSSOVER_WEBSITE_EXPORT_DIR` to write them elsewhere.
 
+The browser export includes a deterministic gzip copy of the scenario inputs and one
+resource-matrix file per search radius. The explorer can therefore load the central
+scenario first and retrieve other radii only when requested, without changing the
+underlying values.
+
 ## Reporting samples
 
 The release distinguishes two operating-fleet samples. `grid_power_comparable` contains 2,836 units at 1,056 plants and excludes units identified as captive or combined heat and power. `expanded_operating_fleet` contains all 6,580 operating units at 2,384 plants.

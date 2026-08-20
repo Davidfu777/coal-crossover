@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import os
@@ -23,6 +24,7 @@ DEFAULT_OUTPUT = DEFAULT_DATA_DIR / "website_data.json"
 DEFAULT_DETAILS_OUTPUT = DEFAULT_DATA_DIR / "plant_details.json"
 DEFAULT_SCENARIO_OUTPUT = DEFAULT_DATA_DIR / "scenario_inputs.json"
 DEFAULT_RESOURCE_SURFACE_OUTPUT = DEFAULT_DATA_DIR / "resource_surface.f32"
+RESOURCE_SURFACE_SLICE_PATTERN = "resource_surface_r{radius_km}.f32"
 DEFAULT_DOWNLOAD_DIR = DEFAULT_EXPORT_ROOT / "downloads"
 DEFAULT_MANIFEST_OUTPUT = DEFAULT_EXPORT_ROOT / "WEBSITE_DATA_MANIFEST.json"
 
@@ -731,7 +733,40 @@ def _resource_surface(
         "size_bytes": len(encoded),
         "sha256": hashlib.sha256(encoded).hexdigest(),
     }
+    slice_metadata, _ = _resource_surface_slices(metadata, encoded)
+    metadata["slices"] = slice_metadata
     return metadata, encoded
+
+
+def _resource_surface_slices(
+    metadata: dict[str, Any],
+    encoded: bytes,
+) -> tuple[dict[str, Any], dict[int, bytes]]:
+    """Split the resource matrix into independently verifiable radius files."""
+    values = np.frombuffer(encoded, dtype="<f4").reshape(metadata["shape"])
+    plant_count, technology_count, radius_count, percentile_count = values.shape
+    radii = metadata["radii_km"]
+    if radius_count != len(radii):
+        raise ValueError("Resource surface radius axis does not match its metadata")
+
+    files: dict[str, dict[str, Any]] = {}
+    payloads: dict[int, bytes] = {}
+    for radius_index, radius_km in enumerate(radii):
+        radius_values = np.ascontiguousarray(values[:, :, radius_index, :], dtype="<f4")
+        radius_encoded = radius_values.tobytes(order="C")
+        filename = RESOURCE_SURFACE_SLICE_PATTERN.format(radius_km=radius_km)
+        payloads[int(radius_km)] = radius_encoded
+        files[str(radius_km)] = {
+            "file": filename,
+            "size_bytes": len(radius_encoded),
+            "sha256": hashlib.sha256(radius_encoded).hexdigest(),
+        }
+
+    return {
+        "dimension_order": ["plant", "technology", "resource_percentile"],
+        "shape": [plant_count, technology_count, percentile_count],
+        "files": files,
+    }, payloads
 
 
 def build_scenario_payload(
@@ -961,6 +996,17 @@ def write_payload(
         resource_surface_output_path.name,
     )
     resource_surface_output_path.write_bytes(resource_surface_encoded)
+    _, resource_surface_slices = _resource_surface_slices(
+        resource_surface_metadata,
+        resource_surface_encoded,
+    )
+    for existing_slice in resource_surface_output_path.parent.glob("resource_surface_r*.f32"):
+        existing_slice.unlink()
+    for radius_km, radius_encoded in resource_surface_slices.items():
+        slice_path = resource_surface_output_path.with_name(
+            RESOURCE_SURFACE_SLICE_PATTERN.format(radius_km=radius_km)
+        )
+        slice_path.write_bytes(radius_encoded)
     scenario_payload = build_scenario_payload(resource_surface_metadata)
     scenario_encoded = json.dumps(
         scenario_payload,
@@ -969,6 +1015,15 @@ def write_payload(
         allow_nan=False,
     ).encode()
     scenario_output_path.write_bytes(scenario_encoded)
+    scenario_gzip_output_path = scenario_output_path.with_suffix(
+        scenario_output_path.suffix + ".gz"
+    )
+    scenario_gzip_encoded = gzip.compress(
+        scenario_encoded,
+        compresslevel=9,
+        mtime=0,
+    )
+    scenario_gzip_output_path.write_bytes(scenario_gzip_encoded)
 
     download_manifest = write_public_downloads(
         download_dir,
@@ -1004,10 +1059,27 @@ def write_payload(
                 "sha256": hashlib.sha256(scenario_encoded).hexdigest(),
             },
             {
+                "path": str(scenario_gzip_output_path),
+                "size_bytes": len(scenario_gzip_encoded),
+                "sha256": hashlib.sha256(scenario_gzip_encoded).hexdigest(),
+            },
+            {
                 "path": str(resource_surface_output_path),
                 "size_bytes": len(resource_surface_encoded),
                 "sha256": resource_surface_metadata["sha256"],
             },
+        ]
+        + [
+            {
+                "path": str(
+                    resource_surface_output_path.with_name(
+                        RESOURCE_SURFACE_SLICE_PATTERN.format(radius_km=radius_km)
+                    )
+                ),
+                "size_bytes": len(radius_encoded),
+                "sha256": resource_surface_metadata["slices"]["files"][str(radius_km)]["sha256"],
+            }
+            for radius_km, radius_encoded in resource_surface_slices.items()
         ]
         + [
             {
