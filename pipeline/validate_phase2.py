@@ -171,7 +171,16 @@ def validate() -> dict[str, object]:
         values="storage_asset_lcos_usd_per_mwh",
         aggfunc="first",
     )
-    asset_order = asset_cost["low"].le(asset_cost["mid"]) & asset_cost["mid"].le(asset_cost["high"])
+    ordered_cases = [
+        case
+        for case, _value in sorted(
+            spec["battery_storage"]["capex_2025_usd_per_kwh"].items(),
+            key=lambda item: float(item[1]),
+        )
+    ]
+    asset_order = pd.Series(True, index=asset_cost.index)
+    for lower_case, higher_case in zip(ordered_cases, ordered_cases[1:], strict=False):
+        asset_order &= asset_cost[lower_case].le(asset_cost[higher_case])
     _record(
         checks,
         "battery_cost_case_monotonicity",
@@ -209,9 +218,10 @@ def validate() -> dict[str, object]:
     )
     _record(checks, "zero_storage_identity", bool(zero_identity), rows=int(len(zero_storage)))
 
+    central_capex_case = spec["battery_storage"]["central_capex_case"]
     selected_zero = storage.loc[
         storage["technology"].eq("least_cost_renewable")
-        & storage["battery_capex_case"].eq("mid")
+        & storage["battery_capex_case"].eq(central_capex_case)
         & storage["stored_energy_share"].eq(0)
     ].sort_values("unit_id")
     selected_baseline = units.sort_values("unit_id")
@@ -276,8 +286,11 @@ def validate() -> dict[str, object]:
     )
 
     benchmark_path = SOURCES / "lazard" / "Lazard_LCOE_Plus_2026.pdf"
+    central_battery_capex = float(
+        spec["battery_storage"]["capex_2025_usd_per_kwh"][central_capex_case]
+    )
     benchmark_fixture = storage_cost_components(
-        capex_usd_per_kwh=329.991967,
+        capex_usd_per_kwh=central_battery_capex,
         duration_hours=4,
         wacc=0.10,
         lifetime_years=15,
@@ -302,17 +315,18 @@ def validate() -> dict[str, object]:
         model_reference_fixture_usd_per_mwh=fixture_lcos,
         model_fixture_difference_from_lazard_low_usd_per_mwh=fixture_lcos - lazard_low,
         comparison_note=(
-            "The fixture is a reasonableness check only. It uses the independent NREL-based "
-            "cost boundary and is not calibrated to Lazard's U.S. financing and tax assumptions."
+            "The fixture is a reasonableness check only. It uses the nominal 2025 "
+            "PyPSA-Earth battery-capital-cost benchmark with documented NREL technical "
+            "assumptions and is not calibrated to Lazard's U.S. financing and tax assumptions."
         ),
     )
 
     main_renewable = renewable_summary.loc[
         renewable_summary["reporting_sample"].eq("grid_power_comparable")
     ].sort_values("scenario_id")
-    main_storage_mid = storage_summary.loc[
+    main_storage_central = storage_summary.loc[
         storage_summary["reporting_sample"].eq("grid_power_comparable")
-        & storage_summary["battery_capex_case"].eq("mid")
+        & storage_summary["battery_capex_case"].eq(central_capex_case)
     ].sort_values(["technology", "stored_energy_share"])
 
     report = {
@@ -327,7 +341,9 @@ def validate() -> dict[str, object]:
             "storage_sensitivity_summary": list(storage_summary.shape),
         },
         "main_sample_renewable_scenarios": main_renewable.to_dict(orient="records"),
-        "main_sample_mid_battery_scenarios": main_storage_mid.to_dict(orient="records"),
+        "main_sample_central_battery_scenarios": main_storage_central.to_dict(
+            orient="records"
+        ),
         "interpretation_limits": [
             "The baseline remains an economic generation-cost screen.",
             "Storage scenarios are cost sensitivities, not hourly dispatch or firm-capacity models.",

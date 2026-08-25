@@ -169,6 +169,7 @@ def build(refresh_resources: bool = False) -> dict[str, object]:
             "scenario_count": int(storage_sensitivity["scenario_id"].nunique()),
             "technologies": sorted(storage_sensitivity["technology"].unique()),
             "battery_capex_cases": list(phase2_spec["battery_storage"]["capex_2025_usd_per_kwh"]),
+            "central_capex_case": phase2_spec["battery_storage"]["central_capex_case"],
             "stored_energy_shares": phase2_spec["battery_storage"]["stored_energy_shares"],
         },
         "interpretation": (

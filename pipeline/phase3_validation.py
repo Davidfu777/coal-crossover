@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from .paths import LEGACY_AWS_PARQUET, OUTPUTS
+from .phase2 import load_phase2_spec
 
 HISTORICAL_AWS_PARQUET = LEGACY_AWS_PARQUET
 RELATIVE_TOLERANCE = 1e-8
@@ -126,6 +127,7 @@ def select_validation_sample(
     storage_sensitivity: pd.DataFrame,
     target_minimum: int = 30,
 ) -> pd.DataFrame:
+    central_capex_case = load_phase2_spec()["battery_storage"]["central_capex_case"]
     selected: OrderedDict[str, dict[str, object]] = OrderedDict()
 
     def add(frame: pd.DataFrame, reason: str, count: int = 1) -> None:
@@ -213,13 +215,13 @@ def select_validation_sample(
 
     zero = storage_sensitivity.loc[
         storage_sensitivity["technology"].eq("least_cost_renewable")
-        & storage_sensitivity["battery_capex_case"].eq("mid")
+        & storage_sensitivity["battery_capex_case"].eq(central_capex_case)
         & storage_sensitivity["stored_energy_share"].eq(0),
         ["unit_id", "storage_adjusted_crossover"],
     ].rename(columns={"storage_adjusted_crossover": "zero_storage_crossed"})
     quarter = storage_sensitivity.loc[
         storage_sensitivity["technology"].eq("least_cost_renewable")
-        & storage_sensitivity["battery_capex_case"].eq("mid")
+        & storage_sensitivity["battery_capex_case"].eq(central_capex_case)
         & storage_sensitivity["stored_energy_share"].eq(0.25),
         ["unit_id", "storage_adjusted_crossover"],
     ].rename(columns={"storage_adjusted_crossover": "quarter_storage_crossed"})
@@ -231,7 +233,7 @@ def select_validation_sample(
     )
     add(
         storage_flips.sort_values(["capacity_mw", "unit_id"], ascending=[False, True]),
-        "class_flip_mid_battery_25pct",
+        "class_flip_central_battery_25pct",
         count=3,
     )
 
@@ -348,9 +350,10 @@ def recalculate_sample(
     sample: pd.DataFrame,
     storage_sensitivity: pd.DataFrame,
 ) -> pd.DataFrame:
+    central_capex_case = load_phase2_spec()["battery_storage"]["central_capex_case"]
     storage = storage_sensitivity.loc[
         storage_sensitivity["technology"].eq("least_cost_renewable")
-        & storage_sensitivity["battery_capex_case"].eq("mid")
+        & storage_sensitivity["battery_capex_case"].eq(central_capex_case)
         & storage_sensitivity["stored_energy_share"].eq(0.25)
     ].set_index("unit_id")
     records: list[dict[str, object]] = []

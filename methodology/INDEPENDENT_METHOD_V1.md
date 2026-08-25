@@ -212,7 +212,7 @@ The paper reports a deterministic central estimate and an uncertainty result.
 - Wind losses: 10%, 15%, and 20%.
 - Spatial resource: a direct 30--60 km by P0--P100 response surface, with 30/45/60 km and P50/P90/P100 retained for formal reporting.
 - O&M: direct country value, technology median, and fallback source level.
-- Storage extension: NREL 2025 low, mid, and high four-hour battery capital costs and stored-energy shares of 0%, 25%, 50%, and 100%.
+- Storage extension: the nominal 2025 PyPSA-Earth four-hour grid-battery capital cost of 164.44 USD/kWh, with stored-energy shares of 0%, 25%, 50%, and 100%. NREL supplies the common battery life, efficiency, cycling, and fixed-O&M assumptions.
 
 Where sufficient empirical distributions and defensible dependence assumptions exist, sampling uses those observations rather than invented normal distributions. Until those requirements are met, report the full deterministic scenario range and do not label it a probability distribution. Every unit receives a source-confidence record. If a crossover probability is later estimated, the sampling distributions, dependencies, and random seed must be published; binary labels never replace the underlying scenario and break-even values.
 
@@ -254,6 +254,8 @@ The recommended sequence is:
 - IEA, Cost of Capital Observatory, 2025 dashboard and 2024 project-finance observations.
 - Energy Innovation, *Coal Cost Crossover 3.0*, for the 45 km local-resource precedent and interpretation boundary.
 - NREL, *Wind Vision* and technical-potential documentation, for gross-to-net wind loss calibration.
-- NREL, *Cost Projections for Utility-Scale Battery Storage: 2025 Update*, for the four-hour battery capital-cost and performance assumptions.
+- PyPSA-Earth battery-cost series and its cited sources, for the nominal 2025 four-hour grid-battery capital cost.
+- IEA, *World Energy Outlook 2025*, for external 2024 and 2050 battery-cost comparisons.
+- NREL, *Cost Projections for Utility-Scale Battery Storage: 2025 Update*, for battery life, round-trip efficiency, cycling, and fixed-O&M assumptions used in the LCOS calculation.
 - NREL, *Storage Futures Study: Storage Technology Modeling Input Data Report*, for the LCOS cost boundary and interpretation.
 - Lazard, *Levelized Cost of Energy+ 2026*, LCOS v11.0, as an external U.S. benchmark only.

@@ -10,6 +10,7 @@ from pipeline.build_website_data import (
     build_details_payload,
     build_payload,
     build_scenario_payload,
+    write_public_downloads,
 )
 from pipeline.paths import OUTPUTS, ROOT
 
@@ -87,7 +88,7 @@ def test_scenario_payload_contains_complete_model_inputs() -> None:
     assert payload["metadata"]["baseline"]["resource_radius_km"] == 45
     assert payload["metadata"]["baseline"]["resource_percentile"] == 90
     assert payload["metadata"]["baseline"]["wind_loss_fraction"] == 0.15
-    assert payload["metadata"]["scenario_definition_version"] == "1.4"
+    assert payload["metadata"]["scenario_definition_version"] == "1.5"
     surface = payload["metadata"]["resource_surface"]
     assert surface["shape"] == [2_384, 2, 31, 101]
     assert surface["radii_km"] == list(range(30, 61))
@@ -108,10 +109,15 @@ def test_scenario_payload_contains_complete_model_inputs() -> None:
     battery_control = payload["metadata"]["controls"]["battery_capex_2025_usd_per_kwh"]
     assert battery_control["minimum"] == 111.03
     assert battery_control["maximum"] == 359.8
-    assert (
-        payload["metadata"]["battery"]["projection_capex_2025_usd_per_kwh"]["2050"]["low"]
-        == 111.025335
-    )
+    assert battery_control["default"] == 164.44
+    assert payload["metadata"]["battery"]["capex_2025_usd_per_kwh"] == {
+        "nominal_2025": 164.44
+    }
+    assert payload["metadata"]["battery"]["pypsa_earth_reference_usd_per_kwh"] == {
+        "nominal_2025": 164.44,
+        "effective_2025_two_year_build_lag": 237.5,
+        "2050": {"p10": 61.2, "median": 99.3, "p90": 201.7},
+    }
     assert payload["metadata"]["baseline"] == {
         "sample": "grid_power_comparable",
         "resource_radius_km": 45,
@@ -122,7 +128,7 @@ def test_scenario_payload_contains_complete_model_inputs() -> None:
         "renewable_capex_multiplier": 1,
         "renewable_technology": "least_cost",
         "stored_energy_share": 0,
-        "battery_capex_2025_usd_per_kwh": 329.99,
+        "battery_capex_2025_usd_per_kwh": 164.44,
     }
 
     first = payload["plants"][0]
@@ -138,6 +144,23 @@ def test_scenario_payload_contains_complete_model_inputs() -> None:
     assert (
         "Major area (prefecture, district)" in payload["metadata"]["geography"]["city_source_field"]
     )
+
+
+def test_public_source_manifest_excludes_unadopted_candidates(tmp_path) -> None:
+    payload = build_payload()
+    scenario = build_scenario_payload()
+    write_public_downloads(
+        tmp_path,
+        payload["metadata"]["generated_at_utc"],
+        payload["metadata"]["method_sha256"],
+        payload["metadata"]["source_manifest_sha256"],
+        scenario["metadata"]["scenario_definition_version"],
+        scenario["metadata"]["scenario_definition_sha256"],
+    )
+
+    source_manifest = pd.read_csv(tmp_path / "source_manifest.csv")
+    assert "CSIRO" not in set(source_manifest["source_family"])
+    assert not source_manifest["role"].eq("Optional source").any()
 
 
 def test_browser_resource_surface_matches_formal_parquet_values() -> None:

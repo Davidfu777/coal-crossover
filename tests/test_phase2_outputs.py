@@ -20,10 +20,10 @@ def test_phase2_output_artifacts_and_row_counts() -> None:
 
     assert len(renewable) == 6_580 * 9
     assert renewable["scenario_id"].nunique() == 9
-    assert len(storage) == 6_580 * 36
-    assert storage["scenario_id"].nunique() == 36
+    assert len(storage) == 6_580 * 12
+    assert storage["scenario_id"].nunique() == 12
     assert len(renewable_summary) == 18
-    assert len(storage_summary) == 72
+    assert len(storage_summary) == 24
     assert phase2_summary["renewable_sensitivity"]["row_count"] == len(renewable)
     assert phase2_summary["storage_sensitivity"]["row_count"] == len(storage)
 
@@ -67,9 +67,11 @@ def test_phase2_zero_storage_share_is_exact_identity() -> None:
 def test_phase2_least_cost_zero_storage_matches_baseline() -> None:
     storage = pd.read_parquet(OUTPUTS / "storage_sensitivity_results.parquet")
     units = pd.read_parquet(OUTPUTS / "unit_results.parquet")
+    phase2_summary = json.loads((OUTPUTS / "phase2_summary.json").read_text())
+    central_capex_case = phase2_summary["storage_sensitivity"]["central_capex_case"]
     selected = storage.loc[
         storage["technology"].eq("least_cost_renewable")
-        & storage["battery_capex_case"].eq("mid")
+        & storage["battery_capex_case"].eq(central_capex_case)
         & storage["stored_energy_share"].eq(0)
     ].sort_values("unit_id")
     baseline = units.sort_values("unit_id")

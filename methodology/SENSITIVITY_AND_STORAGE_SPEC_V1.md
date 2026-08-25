@@ -1,6 +1,6 @@
 # Coal Crossover sensitivity and storage specification v1
 
-Status: adopted for implementation on 2026-08-03. The spatial and wind-loss choices follow Gernot Wagner's written feedback. The LCOS construction is a transparent implementation specification and remains subject to co-author review before publication.
+Status: adopted for implementation on 2026-08-03 and updated on 2026-08-25. The spatial, wind-loss, and battery-cost choices follow Gernot Wagner's written feedback. The LCOS construction is a transparent implementation specification and remains subject to co-author review before publication.
 
 ## 1. Scope and interpretation
 
@@ -66,27 +66,13 @@ The renewable capital-cost control applies a 0.60--1.40 multiplier in 0.05 incre
 
 The first storage extension uses a stand-alone, utility-scale, four-hour lithium-ion battery. Longer-duration storage is not part of the v1 central result.
 
-NREL's *Cost Projections for Utility-Scale Battery Storage: 2025 Update* reports the following projections for a complete four-hour system, stated in constant 2024 USD. The corresponding constant 2025 USD values use the retained World Bank U.S. GDP deflator conversion.
+The default capital cost is 164.44 constant 2025 USD/kWh. This is the nominal 2025 four-hour grid-battery value from the PyPSA-Earth battery-cost series, approved by the study principal investigator. The related 237.50 USD/kWh value is an effective 2025 input that averages 2018--2023 prices to reflect a two-year build lag; it is retained as provenance but is not the default. The same source series gives a 2050 median of 99.30 USD/kWh and a P10--P90 range of 61.20--201.70 USD/kWh. These future values are references, not additional current-year cases.
 
-| Projection year | Case | 2024 USD/kWh | 2025 USD/kWh |
-|---|---|---:|---:|
-| 2025 | Low | 295 | 303.263646 |
-| 2025 | Mid | 321 | 329.991967 |
-| 2025 | High | 350 | 359.804325 |
-| 2035 | Low | 147 | 151.117817 |
-| 2035 | Mid | 243 | 249.807003 |
-| 2035 | High | 339 | 348.496189 |
-| 2050 | Low | 108 | 111.025335 |
-| 2050 | Mid | 178 | 182.986200 |
-| 2050 | High | 307 | 315.599794 |
+IEA World Energy Outlook values are retained for comparison: 150 USD/kWh in 2024 and 2050 values of 90 USD/kWh under Current Policies and Stated Policies and 80 USD/kWh under Net Zero Emissions, all in 2024 USD. They do not replace the model default.
 
-The conversion uses the retained World Bank U.S. GDP deflator values for 2024 and 2025:
+The dashboard keeps the previously established exploratory range of 111.03 to 359.80 constant 2025 USD/kWh and opens at 164.44 USD/kWh. The range is not a confidence interval; values other than the default are user-defined scenarios.
 
-`2025 USD factor = 122.361624831936 / 119.027387038617 = 1.028012358133`
-
-The 2025 mid case is the central battery capital cost. The formal publication tables retain the 2025 low, mid, and high cases. The dashboard exposes a wider exploratory range continuously to the nearest cent, from the 2050 low projection (111.03 USD/kWh) to the 2025 high projection (359.80 USD/kWh), with a default of 329.99 USD/kWh. This span is a set of dated NREL projections, not a confidence interval. Values selected between the anchors are scenario inputs rather than additional NREL forecasts.
-
-Other NREL 2025 assumptions are:
+NREL's 2025 utility-scale battery report supplies the remaining operating assumptions:
 
 - duration: 4 hours;
 - project life: 15 years;
@@ -191,8 +177,8 @@ The machine-readable output may contain the full deterministic scenario grid. Th
 1. Spatial sensitivity: 30/45/60 km, holding P90 and all other central assumptions fixed.
 2. Resource-statistic sensitivity: P50/P90/P100 at 45 km.
 3. Wind-loss sensitivity: 10%/15%/20%, holding 45 km P90 fixed.
-4. Battery-cost sensitivity: low/mid/high NREL 2025 capital cost, holding the central resource assumptions fixed.
-5. Stored-energy sensitivity: 0%/25%/50%/100%, holding the NREL mid battery cost fixed.
+4. Battery-cost sensitivity: continuous user-defined values from 111.03 to 359.80 USD/kWh, with 164.44 USD/kWh as the nominal 2025 default.
+5. Stored-energy sensitivity: 0%/25%/50%/100%, holding battery capital cost at 164.44 USD/kWh.
 6. Coal-price sensitivity: P10/P50/P90, holding unit heat rate, assigned all-in O&M, and all renewable assumptions fixed.
 
 ## 9. Validation requirements
@@ -204,13 +190,13 @@ Before storage-adjusted results are released:
 3. Confirm lower round-trip efficiency raises charging LCOS.
 4. Confirm higher battery capital cost raises storage asset LCOS.
 5. Confirm higher wind loss lowers net capacity factor and raises wind LCOE.
-6. Confirm the 2024-to-2025 dollar conversion uses the retained World Bank U.S. series.
+6. Confirm that the central storage records use 164.44 USD/kWh.
 7. Check the four-hour LCOS against Lazard 2026's U.S. utility-scale stand-alone range without calibrating the model to force agreement.
 8. Verify that charging electricity is counted once.
 9. Retain zero-storage and storage-adjusted classifications as separate fields.
 
 ## 10. Interpretation limits
 
-NREL and Lazard battery costs are U.S.-oriented benchmarks. Applying them globally is a transparent storage-cost sensitivity, not a claim that every country can procure batteries at the same installed cost. Lazard 2026 is used only as an external benchmark because its LCOS includes U.S. financing, tax, warranty, augmentation, operating-day, and charging-cost assumptions that are not directly portable to the global Coal Crossover model.
+The nominal 2025 battery cost is applied uniformly as a global benchmark rather than a country-specific procurement estimate. The NREL operating assumptions are U.S.-oriented. Lazard 2026 is used only as an external LCOS benchmark because its financing, tax, warranty, augmentation, operating-day, and charging-cost assumptions are not directly portable to the global Coal Crossover model.
 
 The four-hour sensitivity does not model hourly dispatch, seasonal adequacy, transmission, curtailment, capacity accreditation, ancillary services, or plant-specific interconnection. Those questions require a chronological power-system model and remain outside this paper's generation-cost screen.

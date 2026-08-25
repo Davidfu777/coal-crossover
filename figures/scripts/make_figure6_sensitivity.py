@@ -39,8 +39,8 @@ def load_summaries() -> tuple[pd.DataFrame, pd.DataFrame]:
         "wind_r45_p90_loss20",
     }
     assert set(renewable["scenario_id"]) == expected_renewable
-    assert len(storage) == 12
-    assert set(storage["battery_capex_case"]) == {"low", "mid", "high"}
+    assert len(storage) == 4
+    assert set(storage["battery_capex_case"]) == {"nominal_2025"}
     assert set(storage["stored_energy_share"]) == {0.0, 0.25, 0.5, 1.0}
     return renewable, storage
 
@@ -157,11 +157,7 @@ def draw_renewable_sensitivity(ax: plt.Axes, data: pd.DataFrame) -> None:
 
 
 def draw_storage_sensitivity(ax: plt.Axes, data: pd.DataFrame) -> None:
-    styles = {
-        "low": (COLORS["primary_light"], "Low cost"),
-        "mid": (COLORS["primary"], "Mid cost"),
-        "high": (COLORS["coal"], "High cost"),
-    }
+    styles = {"nominal_2025": (COLORS["primary"], "Nominal 2025: 164.44 USD/kWh")}
     for case, (color, label) in styles.items():
         subset = data.loc[data["battery_capex_case"].eq(case)].sort_values("stored_energy_share")
         x = subset["stored_energy_share"].to_numpy() * 100
@@ -173,16 +169,9 @@ def draw_storage_sensitivity(ax: plt.Axes, data: pd.DataFrame) -> None:
             markersize=4.2,
             linewidth=1.35,
             color=color,
+            label=label,
         )
-        ax.text(
-            x[1] + 2.2,
-            y[1],
-            label,
-            ha="left",
-            va="center",
-            fontsize=5.8,
-            color=color,
-        )
+    ax.legend(frameon=False, fontsize=5.7, loc="upper right", handlelength=1.8)
     ax.set_xlim(-2, 112)
     ax.set_ylim(-2, 100)
     ax.set_xticks([0, 25, 50, 100])

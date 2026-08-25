@@ -747,7 +747,8 @@ The dataset is derived from registered public or author-obtained sources. Origin
 - World Bank GDP deflator, indicator NY.GDP.DEFL.ZS: https://api.worldbank.org/v2/country/all/indicator/NY.GDP.DEFL.ZS
 - Natural Earth, Admin 0 Countries version 5.1.1: https://www.naturalearthdata.com/
 - NREL, Wind Vision appendices: https://docs.nrel.gov/docs/fy15osti/63197-3.pdf
-- NREL, Cost Projections for Utility-Scale Battery Storage: 2025 Update: https://doi.org/10.2172/2583471
+- Companion PyPSA-Earth analysis (manuscript in preparation), for the nominal 2025 four-hour grid-battery capital-cost input
+- NREL, Cost Projections for Utility-Scale Battery Storage: 2025 Update, for battery life, efficiency, cycling, and fixed-O&M assumptions: https://doi.org/10.2172/2583471
 - NREL, Storage Futures Study: Storage Technology Modeling Input Data Report: https://www.osti.gov/servlets/purl/1785959
 
 ## Validation and supporting sources
@@ -757,6 +758,9 @@ The dataset is derived from registered public or author-obtained sources. Origin
 - U.S. Treasury interest-rate data: https://home.treasury.gov/resource-center/data-chart-center/interest-rates
 - Ember Yearly Electricity Data: https://github.com/EmberClimate/ember-data-api
 - PyPSA technology-data v0.14.0: https://doi.org/10.5281/zenodo.18631155
+- Ziegler and Trancik, lithium-ion battery cost trends: https://doi.org/10.1039/D0EE02681F
+- Ziegler and Trancik battery data series: https://doi.org/10.7910/DVN/9FEJ7C
+- BloombergNEF, lithium-ion battery pack prices in 2025: https://about.bnef.com/insights/clean-transport/lithium-ion-battery-pack-prices-fall-to-108-per-kilowatt-hour-despite-rising-metal-prices-bloombergnef/
 
 Lazard's 2026 LCOE+ report was used only as a local external benchmark and is not included in this package.
 """

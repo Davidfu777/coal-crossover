@@ -109,9 +109,17 @@ def test_phase2_config_matches_locked_method() -> None:
     assert spec["spatial_resource"]["central_cell_statistic"] == "p90"
     assert spec["wind"]["gross_to_net_loss_fractions"] == [0.1, 0.15, 0.2]
     assert spec["battery_storage"]["stored_energy_shares"] == [0.0, 0.25, 0.5, 1.0]
-    assert spec["battery_storage"]["control_capex_2025_usd_per_kwh"]["minimum"] == 111.03
-    assert spec["battery_storage"]["control_capex_2025_usd_per_kwh"]["maximum"] == 359.8
-    assert spec["battery_storage"]["projection_capex_2025_usd_per_kwh"]["2050"]["low"] == 111.025335
+    battery = spec["battery_storage"]
+    assert battery["central_capex_case"] == "nominal_2025"
+    assert battery["control_capex_2025_usd_per_kwh"]["minimum"] == 111.03
+    assert battery["control_capex_2025_usd_per_kwh"]["maximum"] == 359.8
+    assert battery["control_capex_2025_usd_per_kwh"]["default"] == 164.44
+    assert battery["capex_2025_usd_per_kwh"] == {"nominal_2025": 164.44}
+    assert battery["pypsa_earth_reference_usd_per_kwh"]["2050"] == {
+        "p10": 61.2,
+        "median": 99.3,
+        "p90": 201.7,
+    }
 
 
 def test_wind_loss_conversion_is_monotonic() -> None:
@@ -121,7 +129,7 @@ def test_wind_loss_conversion_is_monotonic() -> None:
 
 def test_storage_lcos_counts_charging_energy_once() -> None:
     costs = storage_cost_components(
-        capex_usd_per_kwh=329.991967,
+        capex_usd_per_kwh=164.44,
         duration_hours=4,
         wacc=0.10,
         lifetime_years=15,
@@ -131,7 +139,7 @@ def test_storage_lcos_counts_charging_energy_once() -> None:
         renewable_lcoe_usd_per_mwh=40,
     )
 
-    assert math.isclose(costs["storage_asset_lcos_usd_per_mwh"], 155.03, abs_tol=0.01)
+    assert math.isclose(costs["storage_asset_lcos_usd_per_mwh"], 77.25, abs_tol=0.01)
     assert math.isclose(costs["charging_lcos_usd_per_mwh"], 40 / 0.85, rel_tol=1e-12)
     assert math.isclose(
         costs["total_lcos_usd_per_mwh"],
@@ -142,7 +150,7 @@ def test_storage_lcos_counts_charging_energy_once() -> None:
 
 def test_lower_efficiency_raises_charging_lcos() -> None:
     common = {
-        "capex_usd_per_kwh": 329.991967,
+        "capex_usd_per_kwh": 164.44,
         "duration_hours": 4,
         "wacc": 0.10,
         "lifetime_years": 15,
@@ -158,13 +166,14 @@ def test_lower_efficiency_raises_charging_lcos() -> None:
 
 def test_solar_and_wind_storage_rows_match_independent_hand_calculation() -> None:
     spec = load_phase2_spec()
+    central_capex_case = spec["battery_storage"]["central_capex_case"]
     result = build_storage_sensitivity_results(_unit_results(), spec)
     selected = result.loc[
         result["technology"].isin(["solar", "wind"])
-        & result["battery_capex_case"].eq("mid")
+        & result["battery_capex_case"].eq(central_capex_case)
         & result["stored_energy_share"].eq(0.5)
     ]
-    capex_kwh = spec["battery_storage"]["capex_2025_usd_per_kwh"]["mid"]
+    capex_kwh = spec["battery_storage"]["capex_2025_usd_per_kwh"][central_capex_case]
     duration = spec["battery_storage"]["central_duration_hours"]
     lifetime = spec["battery_storage"]["project_life_years"]
     cycles = spec["battery_storage"]["cycles_per_year"]
@@ -273,9 +282,9 @@ def test_renewable_sensitivity_builds_prespecified_nine_scenarios() -> None:
 def test_storage_sensitivity_builds_technology_cost_and_share_grid() -> None:
     result = build_storage_sensitivity_results(_unit_results())
 
-    assert len(result) == 36
+    assert len(result) == 12
     assert set(result["technology"]) == {"solar", "wind", "least_cost_renewable"}
-    assert set(result["battery_capex_case"]) == {"low", "mid", "high"}
+    assert set(result["battery_capex_case"]) == {"nominal_2025"}
     assert set(result["stored_energy_share"]) == {0.0, 0.25, 0.5, 1.0}
     zero = result.loc[result["stored_energy_share"].eq(0)]
     assert (zero["hybrid_lcoe_usd_per_mwh"] == zero["renewable_lcoe_usd_per_mwh"]).all()
@@ -342,7 +351,7 @@ def test_phase2_summaries_report_main_and_expanded_samples() -> None:
     }
     assert len(renewable_summary) == 18
     assert renewable_summary["unit_count"].eq(1).all()
-    assert len(storage_summary) == 72
+    assert len(storage_summary) == 24
     assert storage_summary["unit_count"].eq(1).all()
     assert set(storage_summary["technology"]) == {
         "solar",

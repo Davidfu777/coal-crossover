@@ -391,13 +391,23 @@ def write_public_downloads(
         )
 
     source_manifest = pd.read_csv(ROOT / "sources" / "RECEIVED_FILE_MANIFEST.csv")
-    public_source_manifest = source_manifest[
+    status = source_manifest["status"].astype(str)
+    included = (
+        status.eq("received_immutable")
+        | status.str.contains("method_defined", regex=False)
+        | status.eq("generated_method_input")
+        | status.str.contains("validation", regex=False)
+    )
+    public_source_manifest = source_manifest.loc[
+        included,
         ["source_family", "release_or_product", "retrieved_at_local", "sha256", "status"]
     ].copy()
     public_source_manifest.insert(
         1,
         "file_name",
-        source_manifest["relative_path"].map(lambda value: Path(str(value)).name),
+        source_manifest.loc[included, "relative_path"].map(
+            lambda value: Path(str(value)).name
+        ),
     )
     public_source_manifest["role"] = public_source_manifest.pop("status").map(
         lambda status: (
@@ -865,7 +875,7 @@ def build_scenario_payload(
                 "renewable_technology": "least_cost",
                 "stored_energy_share": 0,
                 "battery_capex_2025_usd_per_kwh": round(
-                    storage["capex_2025_usd_per_kwh"][storage["central_capex_case"]], 2
+                    storage["control_capex_2025_usd_per_kwh"]["default"], 2
                 ),
             },
             "prespecified_reporting_values": {
@@ -921,12 +931,21 @@ def build_scenario_payload(
             "battery": {
                 "duration_hours": storage["central_duration_hours"],
                 "capex_2025_usd_per_kwh": storage["capex_2025_usd_per_kwh"],
-                "projection_capex_2025_usd_per_kwh": storage["projection_capex_2025_usd_per_kwh"],
+                "pypsa_earth_reference_usd_per_kwh": storage[
+                    "pypsa_earth_reference_usd_per_kwh"
+                ],
+                "iea_weo_reference_usd_per_kwh": storage[
+                    "iea_weo_reference_usd_per_kwh"
+                ],
                 "fixed_om_fraction": storage["fixed_om_fraction_of_capex_per_kw_year"],
                 "lifetime_years": storage["project_life_years"],
                 "round_trip_efficiency": storage["round_trip_efficiency"],
                 "cycles_per_year": storage["cycles_per_year"],
                 "source": storage["capex_source"],
+                "cost_boundary": storage["capex_cost_boundary"],
+                "geographic_scope": storage["capex_geographic_scope"],
+                "application": storage["capex_application"],
+                "technical_assumptions_source": storage["technical_assumptions_source"],
             },
             "interpretation": {
                 "baseline": (

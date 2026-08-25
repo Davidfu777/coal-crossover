@@ -78,7 +78,9 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, int]]:
     counts = {
         "Central unit records": len(pd.read_parquet(OUTPUT_DIR / "unit_results.parquet")),
         "Plant-sample records": len(plants),
-        "Resource matches": len(pd.read_parquet(OUTPUT_DIR / "resource_matches.parquet")),
+        "Resource response surface": len(
+            pd.read_parquet(OUTPUT_DIR / "resource_matches.parquet")
+        ),
         "Renewable sensitivities": len(
             pd.read_parquet(OUTPUT_DIR / "renewable_sensitivity_results.parquet")
         ),
@@ -95,9 +97,9 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, int]]:
     assert counts == {
         "Central unit records": 6_580,
         "Plant-sample records": 3_440,
-        "Resource matches": 14_304,
+        "Resource response surface": 147_808,
         "Renewable sensitivities": 59_220,
-        "Storage sensitivities": 236_880,
+        "Storage sensitivities": 78_960,
         "Validation scenarios": 432,
     }
     return expanded, primary, counts

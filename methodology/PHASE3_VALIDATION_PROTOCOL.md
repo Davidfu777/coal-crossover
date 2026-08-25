@@ -52,7 +52,7 @@ For each sampled unit, recalculate:
 6. break-even WACC and the residual at the solution;
 7. required renewable capacity and investment;
 8. modeled CO2; and
-9. the mid-cost, 25%-stored-energy battery case.
+9. the nominal 2025 PyPSA-Earth battery-capital-cost case of 164.44 USD/kWh with a 25% stored-energy share.
 
 For each sampled unit and each Phase 2 renewable scenario, recalculate solar and wind LCOE from the scenario capacity factors and verify the stored class.
 

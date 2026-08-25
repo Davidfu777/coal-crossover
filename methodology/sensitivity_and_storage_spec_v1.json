@@ -1,5 +1,5 @@
 {
-  "version": "1.4",
+  "version": "1.5",
   "status": "adopted_for_implementation",
   "baseline_definition": "min(solar_lcoe, wind_lcoe) < coal_operating_cost_floor",
   "spatial_resource": {
@@ -72,68 +72,42 @@
       "maximum": 1.0,
       "step": 0.01
     },
-    "capex_source": "NREL/TP-6A40-93281",
-    "capex_2024_usd_per_kwh": {
-      "low": 295.0,
-      "mid": 321.0,
-      "high": 350.0
-    },
-    "projection_capex_2024_usd_per_kwh": {
-      "2025": {
-        "low": 295.0,
-        "mid": 321.0,
-        "high": 350.0
-      },
-      "2035": {
-        "low": 147.0,
-        "mid": 243.0,
-        "high": 339.0
-      },
-      "2050": {
-        "low": 108.0,
-        "mid": 178.0,
-        "high": 307.0
-      }
-    },
-    "usd_conversion": {
-      "source": "World Bank NY.GDP.DEFL.ZS, United States",
-      "from_year": 2024,
-      "to_year": 2025,
-      "deflator_2024": 119.027387038617,
-      "deflator_2025": 122.361624831936,
-      "factor": 1.028012358133
-    },
+    "capex_source": "PyPSA-Earth battery-cost series and its cited sources; nominal 2025 value approved by the study principal investigator",
+    "capex_cost_boundary": "four-hour grid-battery capital cost per kWh; not LCOS",
+    "capex_geographic_scope": "global benchmark",
+    "capex_application": "nominal 2025 default for the global storage-cost sensitivity",
+    "technical_assumptions_source": "NREL/TP-6A40-93281",
     "capex_2025_usd_per_kwh": {
-      "low": 303.263646,
-      "mid": 329.991967,
-      "high": 359.804325
+      "nominal_2025": 164.44
     },
-    "projection_capex_2025_usd_per_kwh": {
-      "2025": {
-        "low": 303.263646,
-        "mid": 329.991967,
-        "high": 359.804325
-      },
-      "2035": {
-        "low": 151.117817,
-        "mid": 249.807003,
-        "high": 348.496189
-      },
+    "pypsa_earth_reference_usd_per_kwh": {
+      "nominal_2025": 164.44,
+      "effective_2025_two_year_build_lag": 237.5,
       "2050": {
-        "low": 111.025335,
-        "mid": 182.9862,
-        "high": 315.599794
+        "p10": 61.2,
+        "median": 99.3,
+        "p90": 201.7
       }
     },
-    "central_capex_case": "mid",
+    "iea_weo_reference_usd_per_kwh": {
+      "currency_basis": "2024 USD",
+      "2024": 150.0,
+      "2050": {
+        "current_policies": 90.0,
+        "stated_policies": 90.0,
+        "net_zero_emissions": 80.0
+      }
+    },
+    "central_capex_case": "nominal_2025",
     "control_capex_2025_usd_per_kwh": {
       "minimum": 111.03,
       "maximum": 359.8,
+      "default": 164.44,
       "step": 0.01,
       "display_precision": 2,
       "minimum_anchor": "NREL 2050 low projection for a complete four-hour system",
       "maximum_anchor": "NREL 2025 high projection for a complete four-hour system",
-      "calculation": "exploratory dashboard envelope in constant 2025 USD/kWh to the nearest cent; it is not a confidence interval; formal sensitivity tables retain the NREL 2025 low/mid/high cases at full conversion precision"
+      "calculation": "exploratory dashboard envelope in constant 2025 USD/kWh to the nearest cent; it is not a confidence interval; the slider opens at the nominal 2025 PyPSA-Earth value of 164.44 USD/kWh"
     },
     "fixed_om_fraction_of_capex_per_kw_year": 0.04,
     "variable_om_usd_per_mwh": 0.0,
