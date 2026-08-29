@@ -1,6 +1,6 @@
 # Coal Crossover reproducible research code
 
-This repository contains the Python pipeline, validation tests, and figure code for *A global dataset for coal-to-renewable cost crossover analysis*.
+This repository contains the Python pipeline, validation tests, and figure code for *A global dataset for coal-to-renewable cost crossover analysis* by Lilly Loghmani, Haoran Fu, Connor Butterfield, and Gernot Wagner (Mimeo).
 
 The pipeline links operating coal-fired generating units to nearby solar and onshore-wind resources, applies documented cost and financing assumptions, and produces unit-, plant-, sensitivity-, and validation-level records. Original third-party files are not redistributed. Their releases, retrieval dates, checksums, and roles are recorded in `sources/RECEIVED_FILE_MANIFEST.csv` and `metadata/THIRD_PARTY_SOURCES.md`.
 
