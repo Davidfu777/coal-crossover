@@ -247,7 +247,7 @@ def draw_technology_mix(ax: plt.Axes, technology: pd.DataFrame) -> None:
     ax.set_yticks(y, REGION_ORDER)
     ax.invert_yaxis()
     ax.set_xlim(0, 100)
-    ax.set_xlabel("Share of primary-sample coal capacity (%)")
+    ax.set_xlabel("Share of comparison-sample coal capacity (%)")
     ax.set_title("Least-cost technology by region", loc="left", pad=5)
     ax.grid(axis="x", color=COLORS["grid"], linewidth=0.6)
     ax.set_axisbelow(True)
@@ -310,7 +310,7 @@ def main() -> None:
         fig,
         FIGURE_DIR / "figure2_global_crossover_patterns",
         contract={
-            "conclusion": "The primary sample provides plant-level global coverage of least-cost renewable technology and central crossover status.",
+            "conclusion": "The comparison sample provides plant-level global coverage of least-cost renewable technology and central crossover status.",
             "archetype": "hero map with regional summaries",
             "backend": "Python matplotlib",
             "final_width_mm": "180",

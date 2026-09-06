@@ -399,15 +399,12 @@ def write_public_downloads(
         | status.str.contains("validation", regex=False)
     )
     public_source_manifest = source_manifest.loc[
-        included,
-        ["source_family", "release_or_product", "retrieved_at_local", "sha256", "status"]
+        included, ["source_family", "release_or_product", "retrieved_at_local", "sha256", "status"]
     ].copy()
     public_source_manifest.insert(
         1,
         "file_name",
-        source_manifest.loc[included, "relative_path"].map(
-            lambda value: Path(str(value)).name
-        ),
+        source_manifest.loc[included, "relative_path"].map(lambda value: Path(str(value)).name),
     )
     public_source_manifest["role"] = public_source_manifest.pop("status").map(
         lambda status: (
@@ -931,12 +928,8 @@ def build_scenario_payload(
             "battery": {
                 "duration_hours": storage["central_duration_hours"],
                 "capex_2025_usd_per_kwh": storage["capex_2025_usd_per_kwh"],
-                "pypsa_earth_reference_usd_per_kwh": storage[
-                    "pypsa_earth_reference_usd_per_kwh"
-                ],
-                "iea_weo_reference_usd_per_kwh": storage[
-                    "iea_weo_reference_usd_per_kwh"
-                ],
+                "pypsa_earth_reference_usd_per_kwh": storage["pypsa_earth_reference_usd_per_kwh"],
+                "iea_weo_reference_usd_per_kwh": storage["iea_weo_reference_usd_per_kwh"],
                 "fixed_om_fraction": storage["fixed_om_fraction_of_capex_per_kw_year"],
                 "lifetime_years": storage["project_life_years"],
                 "round_trip_efficiency": storage["round_trip_efficiency"],

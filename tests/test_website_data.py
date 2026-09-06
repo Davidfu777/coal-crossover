@@ -110,9 +110,7 @@ def test_scenario_payload_contains_complete_model_inputs() -> None:
     assert battery_control["minimum"] == 111.03
     assert battery_control["maximum"] == 359.8
     assert battery_control["default"] == 164.44
-    assert payload["metadata"]["battery"]["capex_2025_usd_per_kwh"] == {
-        "nominal_2025": 164.44
-    }
+    assert payload["metadata"]["battery"]["capex_2025_usd_per_kwh"] == {"nominal_2025": 164.44}
     assert payload["metadata"]["battery"]["pypsa_earth_reference_usd_per_kwh"] == {
         "nominal_2025": 164.44,
         "effective_2025_two_year_build_lag": 237.5,

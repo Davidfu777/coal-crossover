@@ -1,4 +1,4 @@
-"""Build Figure 6: renewable-resource and four-hour storage sensitivities."""
+"""Build Figure 7: renewable-resource and four-hour storage sensitivities."""
 
 from __future__ import annotations
 
@@ -48,8 +48,8 @@ def load_summaries() -> tuple[pd.DataFrame, pd.DataFrame]:
 def write_source_tables(renewable: pd.DataFrame, storage: pd.DataFrame) -> list[Path]:
     TABLE_DIR.mkdir(parents=True, exist_ok=True)
     paths = [
-        TABLE_DIR / "figure6_renewable_sensitivity.csv",
-        TABLE_DIR / "figure6_storage_sensitivity.csv",
+        TABLE_DIR / "figure7_renewable_sensitivity.csv",
+        TABLE_DIR / "figure7_storage_sensitivity.csv",
     ]
     renewable.to_csv(paths[0], index=False)
     storage.to_csv(paths[1], index=False)
@@ -59,23 +59,23 @@ def write_source_tables(renewable: pd.DataFrame, storage: pd.DataFrame) -> list[
 def draw_renewable_sensitivity(ax: plt.Axes, data: pd.DataFrame) -> None:
     groups = [
         (
-            "Search radius",
+            "Search radius (km)",
             ["spatial_r30_p90", "spatial_r45_p90", "spatial_r60_p90"],
-            ["30 km", "45 km", "60 km"],
+            ["30", "45", "60"],
         ),
         (
             "Resource statistic",
             ["resource_r45_p50", "resource_r45_p90", "resource_r45_max"],
-            ["P50", "P90", "Maximum"],
+            ["P50", "P90", "P100"],
         ),
         (
-            "Wind loss",
+            "Wind loss (%)",
             [
                 "wind_r45_p90_loss10",
                 "wind_r45_p90_loss15",
                 "wind_r45_p90_loss20",
             ],
-            ["10%", "15%", "20%"],
+            ["10", "15", "20"],
         ),
     ]
     x_positions: list[float] = []
@@ -144,16 +144,6 @@ def draw_renewable_sensitivity(ax: plt.Axes, data: pd.DataFrame) -> None:
     ax.set_title("Resource and wind-loss assumptions", loc="left", pad=5)
     ax.grid(axis="y", color=COLORS["grid"], linewidth=0.6)
     ax.set_axisbelow(True)
-    ax.text(
-        0.0,
-        -0.24,
-        "Open rings mark the central 45-km P90, 15% wind-loss case.",
-        transform=ax.transAxes,
-        ha="left",
-        va="top",
-        fontsize=6.0,
-        color=COLORS["muted"],
-    )
 
 
 def draw_storage_sensitivity(ax: plt.Axes, data: pd.DataFrame) -> None:
@@ -180,16 +170,6 @@ def draw_storage_sensitivity(ax: plt.Axes, data: pd.DataFrame) -> None:
     ax.set_title("Four-hour battery cost sensitivity", loc="left", pad=5)
     ax.grid(color=COLORS["grid"], linewidth=0.6)
     ax.set_axisbelow(True)
-    ax.text(
-        0.0,
-        -0.24,
-        "Cost sensitivity only; stored-energy shares are not derived from hourly dispatch.",
-        transform=ax.transAxes,
-        ha="left",
-        va="top",
-        fontsize=6.0,
-        color=COLORS["muted"],
-    )
 
 
 def main() -> None:
@@ -197,7 +177,7 @@ def main() -> None:
     renewable, storage = load_summaries()
     source_tables = write_source_tables(renewable, storage)
 
-    fig = plt.figure(figsize=(180 / 25.4, 84 / 25.4), constrained_layout=False)
+    fig = plt.figure(figsize=(180 / 25.4, 78 / 25.4), constrained_layout=False)
     grid = fig.add_gridspec(
         1,
         2,
@@ -206,7 +186,7 @@ def main() -> None:
         left=0.075,
         right=0.96,
         top=0.90,
-        bottom=0.22,
+        bottom=0.16,
     )
     ax_a = fig.add_subplot(grid[0, 0])
     ax_b = fig.add_subplot(grid[0, 1])
@@ -215,7 +195,7 @@ def main() -> None:
     add_panel_label(ax_a, "a", x=-0.13, y=1.10)
     add_panel_label(ax_b, "b", x=-0.15, y=1.10)
 
-    base_path = FIGURE_DIR / "figure6_sensitivity_behavior"
+    base_path = FIGURE_DIR / "figure7_sensitivity_behavior"
     export_figure(
         fig,
         base_path,

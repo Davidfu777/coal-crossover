@@ -3,11 +3,11 @@
 Figure contract
 ---------------
 Conclusion:
-    The publication dataset links versioned public inputs to unit-level central,
+    The dataset links versioned public inputs to unit-level central,
     sensitivity, and validation records with broad global plant coverage.
 Evidence chain:
     Registered sources -> normalized inputs -> cost/resource calculations ->
-    publication records; plant coordinates and output row counts verify coverage.
+    data records; plant coordinates and output row counts verify coverage.
 Archetype:
     Workflow diagram, global point map, and record-count inventory.
 Backend:
@@ -78,9 +78,7 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame, dict[str, int]]:
     counts = {
         "Central unit records": len(pd.read_parquet(OUTPUT_DIR / "unit_results.parquet")),
         "Plant-sample records": len(plants),
-        "Resource response surface": len(
-            pd.read_parquet(OUTPUT_DIR / "resource_matches.parquet")
-        ),
+        "Resource response surface": len(pd.read_parquet(OUTPUT_DIR / "resource_matches.parquet")),
         "Renewable sensitivities": len(
             pd.read_parquet(OUTPUT_DIR / "renewable_sensitivity_results.parquet")
         ),
@@ -112,7 +110,7 @@ def write_figure_data(
     coverage = pd.DataFrame(
         [
             {
-                "sample": "primary grid-power-comparable",
+                "sample": "comparison grid-power-comparable",
                 "plant_count": len(primary),
                 "country_count": primary["country"].nunique(),
                 "capacity_mw": primary["capacity_mw"].sum(),
@@ -149,7 +147,7 @@ def draw_workflow(ax: plt.Axes) -> None:
         ("Harmonized\nrecords", COLORS["solar"]),
         ("Local resource\nmatches", COLORS["wind"]),
         ("Cost and financing\ndiagnostics", COLORS["primary"]),
-        ("Publication\nrecords", COLORS["validation"]),
+        ("Data\nrecords", COLORS["validation"]),
     ]
     x_positions = np.linspace(0.07, 0.93, len(stages))
     ax.plot(
@@ -259,7 +257,7 @@ def draw_coverage_map(ax: plt.Axes, expanded: pd.DataFrame, primary: pd.DataFram
             markerfacecolor=COLORS["primary"],
             markeredgecolor="white",
             markersize=5,
-            label="Primary sample (1,056 plants; 60 countries)",
+            label="Comparison sample (1,056 plants; 60 countries)",
         ),
         Line2D(
             [0],
@@ -313,7 +311,7 @@ def draw_record_inventory(ax: plt.Axes, counts: dict[str, int]) -> None:
     ax.set_xscale("log")
     ax.set_xlim(300, 400_000)
     ax.set_xlabel("Number of records (log scale)")
-    ax.set_title("Publication data package", loc="left", pad=4, weight="bold")
+    ax.set_title("Data package", loc="left", pad=4, weight="bold")
     ax.grid(axis="x", color="#E2E6E4", linewidth=0.55, zorder=0)
     ax.set_axisbelow(True)
     ax.tick_params(axis="y", length=0)

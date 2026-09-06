@@ -12,6 +12,7 @@ import shutil
 import tempfile
 import zipfile
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -23,7 +24,7 @@ METHODOLOGY = ROOT / "methodology"
 SOURCES = ROOT / "sources"
 RELEASES = ROOT / "releases"
 
-TITLE = "A global dataset for coal-to-renewable cost crossover analysis"
+TITLE = "A global dataset for coal-to-renewables cost crossover analysis"
 AUTHORS = (
     "Lilly Loghmani",
     "Haoran Fu",
@@ -31,7 +32,6 @@ AUTHORS = (
     "Gernot Wagner",
 )
 VERSION = "1.0.0-rc1"
-RELEASE_DATE = "2026-08-08"
 PACKAGE_NAME = f"coal_crossover_dataset_v{VERSION}"
 LICENSE_STATUS = "Not assigned - review copy only"
 
@@ -59,7 +59,7 @@ RECORDS = (
         "plant_results.parquet",
         "data/core/plant_results.parquet",
         "Plant-level crossover results",
-        "Plant summaries reported separately for the primary and expanded operating samples.",
+        "Plant summaries reported separately for the comparison sample and expanded operating fleet.",
         "core",
         ("analysis_sample", "plant_id"),
     ),
@@ -99,7 +99,7 @@ RECORDS = (
         "renewable_sensitivity_summary.csv",
         "data/sensitivity/renewable_sensitivity_summary.csv",
         "Renewable-resource sensitivity summary",
-        "Scenario summaries for the primary and expanded operating samples.",
+        "Scenario summaries for the comparison sample and expanded operating fleet.",
         "sensitivity",
         ("scenario_id", "reporting_sample"),
     ),
@@ -115,7 +115,7 @@ RECORDS = (
         "storage_sensitivity_summary.csv",
         "data/sensitivity/storage_sensitivity_summary.csv",
         "Four-hour storage sensitivity summary",
-        "Storage scenario summaries for the primary and expanded operating samples.",
+        "Storage scenario summaries for the comparison sample and expanded operating fleet.",
         "sensitivity",
         ("scenario_id", "reporting_sample"),
     ),
@@ -556,7 +556,6 @@ def clean_source_manifest(destination: Path) -> str:
 
 def sanitize_build_manifest(destination: Path, packaged_source_manifest_sha256: str) -> None:
     source = json.loads((OUTPUTS / "build_manifest.json").read_text(encoding="utf-8"))
-    source["command"] = "python -m pipeline.build_dataset"
     source["method_file"]["path"] = "methodology/INDEPENDENT_METHOD_V1.md"
     source["phase2_method_file"]["path"] = "methodology/sensitivity_and_storage_spec_v1.json"
     source["source_manifest"] = {
@@ -564,8 +563,15 @@ def sanitize_build_manifest(destination: Path, packaged_source_manifest_sha256: 
         "packaged_sha256": packaged_source_manifest_sha256,
         "registered_source_manifest_sha256": source["source_manifest"]["sha256"],
     }
+    destinations = {Path(record.source).name: record.destination for record in RECORDS}
+    destinations.update(dict(SUPPORTING_JSON))
     for item in source["outputs"]:
-        item["path"] = str(Path("data") / Path(item["path"]).name)
+        relative = destinations[Path(item["path"]).name]
+        packaged = destination.parent.parent / relative
+        item["source_output_sha256"] = item["sha256"]
+        item["path"] = relative
+        item["sha256"] = sha256_path(packaged)
+        item["size_bytes"] = packaged.stat().st_size
     destination.write_text(json.dumps(source, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
@@ -635,19 +641,21 @@ def write_data_dictionary(package: Path) -> pd.DataFrame:
     return dictionary
 
 
-def write_documents(package: Path, manifest: pd.DataFrame, dictionary: pd.DataFrame) -> None:
+def write_documents(
+    package: Path, manifest: pd.DataFrame, dictionary: pd.DataFrame, snapshot_date: date
+) -> None:
     total_bytes = int(manifest["size_bytes"].sum())
     fallback_count = int((dictionary["definition_source"] == "field-name definition").sum())
     readme = f"""# {TITLE}
 
-Version {VERSION}, dated {RELEASE_DATE}.
+Review snapshot: {snapshot_date.isoformat()}. Code base version: {VERSION}.
 
 This package contains unit- and plant-level records for comparing the modeled going-forward cost of operating coal-fired generating units with the modeled cost of new local solar and onshore wind. It also includes renewable-resource sensitivities, four-hour battery-storage cases, normalized source records, and independent validation tables.
 
 ## Scope
 
 - 6,580 operating generating units at 2,384 plants in 73 countries.
-- A primary grid-power-comparable sample and an expanded operating-fleet sample.
+- A grid-power-comparable comparison sample and an expanded operating-fleet sample.
 - Local solar and wind resource response surfaces at every integer radius from 30 to 60 km and every empirical percentile from P0 to P100.
 - Central cost and financing assumptions plus resource, wind-loss, coal-price, and storage sensitivities.
 - Costs expressed in constant 2025 USD unless a field explicitly identifies another basis.
@@ -684,25 +692,27 @@ Original third-party workbooks, archives, reports, and rasters are not redistrib
 
 ## Release status
 
-This is a local coauthor review copy. No license has been assigned and it must not be uploaded or redistributed until the authors approve the release terms and the redistribution status of normalized source records. A repository DOI and public citation will be added after deposit.
+This copy is prepared for coauthor review. The manuscript records reserved data DOI https://doi.org/10.5281/zenodo.22092469. A reserved DOI does not itself provide reviewer access. Before journal submission, add an anonymously accessible download link and confirm the dataset license and terms for the normalized source tables.
 
 ## Package inventory
 
-The package contains {len(manifest)} scientific data files totaling {total_bytes:,} bytes before metadata and documentation. The data dictionary contains {len(dictionary):,} dataset-column records. {fallback_count} descriptions are conservative expansions of field names and remain marked as such for final coauthor review.
+The package contains {len(manifest)} scientific data files totaling {total_bytes:,} bytes before metadata and documentation. The data dictionary defines all {len(dictionary):,} dataset-column pairs. Definitions inferred only from field names: {fallback_count}.
 """
     (package / "README.md").write_text(readme, encoding="utf-8")
 
-    citation = f"""Suggested citation after public deposit
+    citation = f"""Dataset citation details
 
-{"; ".join(AUTHORS)} ({RELEASE_DATE[:4]}). {TITLE} (Version {VERSION}) [Data set]. Repository and DOI pending.
+{"; ".join(AUTHORS)} ({snapshot_date.year}). {TITLE} [Data set].
+Reserved Zenodo DOI: https://doi.org/10.5281/zenodo.22092469
+Local review snapshot: {snapshot_date.isoformat()}; code base version: {VERSION}.
 
-The final citation must be updated with the repository name, DOI, and approved public version before publication.
+Use the deposited record's version and date in the final citation.
 """
     (package / "CITATION.txt").write_text(citation, encoding="utf-8")
 
-    license_status = f"""# License status
+    license_status = """# License status
 
-No license has been assigned to version {VERSION}. This local review copy is not authorized for public redistribution.
+The source package did not include an approved dataset license. This review copy does not assign one.
 
 Before deposit, the authors must:
 
@@ -716,9 +726,9 @@ Original third-party source files are excluded from this package.
 
     release_notes = f"""# Release notes
 
-## {VERSION} - {RELEASE_DATE}
+## Review snapshot - {snapshot_date.isoformat()}
 
-First frozen review version prepared for the accompanying Scientific Data Data Descriptor.
+Prepared from the current pipeline outputs for the accompanying Data Descriptor. This snapshot does not replace the earlier release candidate or claim a new public version.
 
 - Preserves the verified central, sensitivity, validation, and normalized source records.
 - Records exact rows, fields, primary keys, file sizes, and SHA-256 hashes.
@@ -775,19 +785,21 @@ def write_checksums(package: Path) -> None:
     checksum_path.write_text("\n".join(rows) + "\n", encoding="utf-8")
 
 
-def write_release_metadata(package: Path, manifest: pd.DataFrame, dictionary: pd.DataFrame) -> None:
+def write_release_metadata(
+    package: Path, manifest: pd.DataFrame, dictionary: pd.DataFrame, snapshot_date: date
+) -> None:
     build_manifest = json.loads(
         (package / "metadata/build_manifest.json").read_text(encoding="utf-8")
     )
     metadata = {
         "title": TITLE,
-        "version": VERSION,
-        "release_date": RELEASE_DATE,
+        "code_base_version": VERSION,
+        "snapshot_date": snapshot_date.isoformat(),
         "authors": list(AUTHORS),
         "release_status": "local coauthor review copy",
         "license": LICENSE_STATUS,
-        "repository": None,
-        "doi": None,
+        "intended_repository": "Zenodo",
+        "reserved_doi": "10.5281/zenodo.22092469",
         "scientific_data_files": len(manifest),
         "data_dictionary_records": len(dictionary),
         "method_sha256": build_manifest["method_file"]["sha256"],
@@ -801,7 +813,7 @@ def write_release_metadata(package: Path, manifest: pd.DataFrame, dictionary: pd
     )
 
 
-def build_package(target: Path) -> None:
+def build_package(target: Path, snapshot_date: date) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
         raise FileExistsError(f"Release directory already exists: {target}")
@@ -845,16 +857,16 @@ def build_package(target: Path) -> None:
         sanitize_build_manifest(package / "metadata/build_manifest.json", source_manifest_sha256)
         manifest = write_file_manifest(package)
         dictionary = write_data_dictionary(package)
-        write_documents(package, manifest, dictionary)
+        write_documents(package, manifest, dictionary, snapshot_date)
         write_third_party_sources(package)
-        write_release_metadata(package, manifest, dictionary)
+        write_release_metadata(package, manifest, dictionary, snapshot_date)
         write_checksums(package)
 
         shutil.move(str(package), str(target))
 
 
-def deterministic_zip(package: Path, destination: Path) -> None:
-    timestamp = tuple(int(value) for value in RELEASE_DATE.split("-")) + (0, 0, 0)
+def deterministic_zip(package: Path, destination: Path, snapshot_date: date) -> None:
+    timestamp = (snapshot_date.year, snapshot_date.month, snapshot_date.day, 0, 0, 0)
     with zipfile.ZipFile(
         destination, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
     ) as archive:
@@ -870,12 +882,13 @@ def deterministic_zip(package: Path, destination: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--target", type=Path, default=RELEASES / PACKAGE_NAME)
+    parser.add_argument("--target", type=Path, required=True)
+    parser.add_argument("--snapshot-date", type=date.fromisoformat, required=True)
     args = parser.parse_args()
 
-    build_package(args.target)
+    build_package(args.target, args.snapshot_date)
     archive = args.target.parent / f"{args.target.name}.zip"
-    deterministic_zip(args.target, archive)
+    deterministic_zip(args.target, archive, args.snapshot_date)
     print(
         json.dumps(
             {

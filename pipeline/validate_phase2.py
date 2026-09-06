@@ -341,9 +341,7 @@ def validate() -> dict[str, object]:
             "storage_sensitivity_summary": list(storage_summary.shape),
         },
         "main_sample_renewable_scenarios": main_renewable.to_dict(orient="records"),
-        "main_sample_central_battery_scenarios": main_storage_central.to_dict(
-            orient="records"
-        ),
+        "main_sample_central_battery_scenarios": main_storage_central.to_dict(orient="records"),
         "interpretation_limits": [
             "The baseline remains an economic generation-cost screen.",
             "Storage scenarios are cost sensitivities, not hourly dispatch or firm-capacity models.",

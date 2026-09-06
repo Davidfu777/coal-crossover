@@ -1,4 +1,4 @@
-"""Build Figure 4: input coverage and fallback transparency."""
+"""Build Figure 5: input coverage and fallback transparency."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def load_and_summarize() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     resources = pd.read_parquet(OUTPUT_DIR / "resource_matches.parquet")
 
     sample_frames = {
-        "Primary sample": units.loc[units["analysis_sample"].eq("grid_power_comparable")],
+        "Comparison sample": units.loc[units["analysis_sample"].eq("grid_power_comparable")],
         "Expanded operating fleet": units,
     }
     om_rows: list[dict[str, object]] = []
@@ -51,11 +51,19 @@ def load_and_summarize() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     wacc_summary["plant_share"] = wacc_summary["plant_count"] / totals
 
     resources = resources.copy()
-    resources["matched"] = (
-        resources["valid_cell_count"].gt(0) & resources["capacity_factor_p90"].notna()
+    expected_resource_rows = 2 * 31 * 2_384
+    assert len(resources) == expected_resource_rows
+    assert set(resources["radius_km"].unique()) == set(range(30, 61))
+
+    # The figure reports the three prespecified radii while the
+    # released table retains the complete 30--60 km response surface.
+    reporting_resources = resources.loc[resources["radius_km"].isin([30.0, 45.0, 60.0])].copy()
+    reporting_resources["matched"] = (
+        reporting_resources["valid_cell_count"].gt(0)
+        & reporting_resources["capacity_factor_p90"].notna()
     )
-    matched = resources.loc[resources["matched"]]
-    resource_summary = resources.groupby(["technology", "radius_km"], as_index=False).agg(
+    matched = reporting_resources.loc[reporting_resources["matched"]]
+    resource_summary = reporting_resources.groupby(["technology", "radius_km"], as_index=False).agg(
         plant_count=("plant_id", "size"), matched_plants=("matched", "sum")
     )
     cell_stats = (
@@ -76,7 +84,7 @@ def load_and_summarize() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 
     assert len(units) == 6_580
     assert len(renewable) == 4_768
-    assert len(resources) == 14_304
+    assert len(reporting_resources) == 14_304
     assert set(om_summary["source_tier"]) == {
         "country_technology",
         "technology_median",
@@ -96,9 +104,9 @@ def write_source_tables(
 ) -> list[Path]:
     TABLE_DIR.mkdir(parents=True, exist_ok=True)
     paths = [
-        TABLE_DIR / "figure4_coal_om_source_tiers.csv",
-        TABLE_DIR / "figure4_renewable_wacc_source_tiers.csv",
-        TABLE_DIR / "figure4_resource_match_coverage.csv",
+        TABLE_DIR / "figure5_coal_om_source_tiers.csv",
+        TABLE_DIR / "figure5_renewable_wacc_source_tiers.csv",
+        TABLE_DIR / "figure5_resource_match_coverage.csv",
     ]
     om_summary.to_csv(paths[0], index=False)
     wacc_summary.to_csv(paths[1], index=False)
@@ -151,18 +159,21 @@ def draw_share_bars(
         left += values * 100
     ax.set_yticks(y, categories)
     ax.invert_yaxis()
+    ax.set_ylim(len(categories) - 0.5, -0.95)
     ax.set_xlim(0, 100)
     ax.set_xlabel("Share of records (%)")
     ax.set_title(title, loc="left", pad=5)
     ax.grid(axis="x", color=COLORS["grid"], linewidth=0.6)
     ax.set_axisbelow(True)
     ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.30),
+        loc="upper left",
+        bbox_to_anchor=(0.0, 0.99),
         ncol=len(tier_order),
-        fontsize=6.2,
-        handlelength=1.2,
-        columnspacing=1.2,
+        frameon=False,
+        fontsize=5.5,
+        handlelength=1.0,
+        columnspacing=0.8,
+        borderaxespad=0.0,
     )
 
 
@@ -189,21 +200,6 @@ def draw_resource_coverage(ax: plt.Axes, summary: pd.DataFrame) -> None:
             capsize=2.2,
             label=label,
         )
-        for row_x, row_y, share in zip(
-            x,
-            median,
-            subset["matched_share"],
-        ):
-            ax.annotate(
-                f"{share * 100:.1f}% matched",
-                (row_x, row_y),
-                xytext=(0, 7),
-                textcoords="offset points",
-                ha="center",
-                va="bottom",
-                fontsize=5.8,
-                color=color,
-            )
     ax.set_yscale("log")
     ax.set_xticks([30, 45, 60])
     ax.set_xlabel("Search radius (km)")
@@ -216,6 +212,18 @@ def draw_resource_coverage(ax: plt.Axes, summary: pd.DataFrame) -> None:
     ax.grid(axis="y", which="major", color=COLORS["grid"], linewidth=0.6)
     ax.set_axisbelow(True)
     ax.legend(loc="upper left", ncol=2, fontsize=6.4)
+    wind_share = summary.loc[summary["technology"].eq("wind"), "matched_share"].min()
+    solar_share = summary.loc[summary["technology"].eq("solar"), "matched_share"].min()
+    ax.text(
+        0.98,
+        0.79,
+        f"Wind: {wind_share * 100:.1f}% matched\nSolar: {solar_share * 100:.1f}% matched",
+        transform=ax.transAxes,
+        ha="right",
+        va="top",
+        fontsize=6.1,
+        color=COLORS["muted"],
+    )
     ax.text(
         1.0,
         -0.22,
@@ -233,20 +241,21 @@ def main() -> None:
     om_summary, wacc_summary, resource_summary = load_and_summarize()
     source_tables = write_source_tables(om_summary, wacc_summary, resource_summary)
 
-    fig = plt.figure(figsize=(180 / 25.4, 82 / 25.4), constrained_layout=False)
+    fig = plt.figure(figsize=(180 / 25.4, 96 / 25.4), constrained_layout=False)
     grid = fig.add_gridspec(
-        1,
-        3,
-        width_ratios=[0.9, 0.82, 1.45],
-        wspace=0.48,
-        left=0.085,
+        2,
+        2,
+        width_ratios=[1.0, 1.65],
+        hspace=0.94,
+        wspace=0.35,
+        left=0.15,
         right=0.985,
-        top=0.90,
-        bottom=0.22,
+        top=0.91,
+        bottom=0.18,
     )
     ax_a = fig.add_subplot(grid[0, 0])
-    ax_b = fig.add_subplot(grid[0, 1])
-    ax_c = fig.add_subplot(grid[0, 2])
+    ax_b = fig.add_subplot(grid[1, 0])
+    ax_c = fig.add_subplot(grid[:, 1])
 
     draw_share_bars(
         ax_a,
@@ -281,11 +290,11 @@ def main() -> None:
     )
     draw_resource_coverage(ax_c, resource_summary)
 
-    add_panel_label(ax_a, "a")
-    add_panel_label(ax_b, "b")
-    add_panel_label(ax_c, "c", x=-0.14, y=1.10)
+    add_panel_label(ax_a, "a", x=-0.23, y=1.13)
+    add_panel_label(ax_b, "b", x=-0.23, y=1.13)
+    add_panel_label(ax_c, "c", x=-0.12, y=1.07)
 
-    base_path = FIGURE_DIR / "figure4_input_coverage_and_fallbacks"
+    base_path = FIGURE_DIR / "figure5_input_coverage_and_fallbacks"
     export_figure(
         fig,
         base_path,

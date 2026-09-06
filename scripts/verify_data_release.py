@@ -40,7 +40,13 @@ def verify(package: Path) -> dict[str, object]:
     file_manifest_path = package / "metadata/file_manifest.csv"
     dictionary_path = package / "metadata/data_dictionary.csv"
 
-    for required in (checksums, file_manifest_path, dictionary_path, package / "README.md"):
+    for required in (
+        checksums,
+        file_manifest_path,
+        dictionary_path,
+        package / "README.md",
+        package / "metadata/build_manifest.json",
+    ):
         if not required.exists():
             failures.append(f"Missing required file: {required.relative_to(package)}")
     if failures:
@@ -56,6 +62,19 @@ def verify(package: Path) -> dict[str, object]:
             failures.append(f"Missing checksummed file: {relative}")
         elif sha256_path(path) != digest:
             failures.append(f"Checksum mismatch: {relative}")
+
+    build_manifest = json.loads((package / "metadata/build_manifest.json").read_text())
+    build_files = [
+        build_manifest["method_file"],
+        build_manifest["phase2_method_file"],
+        *build_manifest["outputs"],
+    ]
+    for item in build_files:
+        path = package / item["path"]
+        if not path.is_file():
+            failures.append(f"Missing build-manifest file: {item['path']}")
+        elif sha256_path(path) != item["sha256"]:
+            failures.append(f"Build-manifest checksum mismatch: {item['path']}")
 
     manifest = pd.read_csv(file_manifest_path)
     checked_rows = 0

@@ -204,6 +204,7 @@ def test_solar_and_wind_storage_rows_match_independent_hand_calculation() -> Non
 
 
 def test_storage_share_preserves_energy_and_zero_share_identity() -> None:
+    # A fixed test price isolates the energy accounting from the scenario defaults.
     zero = storage_energy_scenario(
         renewable_lcoe_usd_per_mwh=40,
         total_lcos_usd_per_mwh=200,

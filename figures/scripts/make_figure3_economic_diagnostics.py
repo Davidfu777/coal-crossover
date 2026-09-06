@@ -210,7 +210,6 @@ def draw_wacc_thresholds(ax: plt.Axes, finance: pd.DataFrame) -> None:
     ax.fill_between(limits, 0, limits, color=COLORS["primary"], alpha=0.045)
     ax.set_xlim(*limits)
     ax.set_ylim(*limits)
-    ax.set_aspect("equal", adjustable="box")
     ax.set_xlabel("Current real after-tax WACC (%)")
     ax.set_ylabel("Break-even WACC (%)")
     ax.set_title("Financing threshold", loc="left", pad=5)
@@ -243,6 +242,26 @@ def draw_reduction_distribution(ax: plt.Axes, finance: pd.DataFrame) -> None:
             [x], [y], s=22, color=COLORS["primary"], edgecolor="white", linewidth=0.4, zorder=3
         )
         ax.text(x + 0.15, y - 2, f"{label}: {x:.2f} pp", ha="left", va="top", fontsize=6.0)
+    maximum = float(values.max())
+    ax.scatter(
+        [maximum],
+        [100],
+        s=22,
+        color=COLORS["alert"],
+        edgecolor="white",
+        linewidth=0.4,
+        zorder=3,
+    )
+    ax.text(
+        maximum - 0.10,
+        98,
+        f"Maximum: {maximum:.3f} pp",
+        ha="right",
+        va="top",
+        fontsize=6.0,
+        color=COLORS["alert"],
+        weight="bold",
+    )
     ax.set_xlim(0, 8.8)
     ax.set_ylim(0, 102)
     ax.set_xlabel("Required WACC reduction (percentage points)")
@@ -257,18 +276,17 @@ def main() -> None:
     units, finance = load_data()
     source_tables = write_source_tables(units, finance)
 
-    fig = plt.figure(figsize=(180 / 25.4, 119 / 25.4), constrained_layout=False)
+    fig = plt.figure(figsize=(180 / 25.4, 102 / 25.4), constrained_layout=False)
     grid = fig.add_gridspec(
         2,
         2,
-        width_ratios=[1.23, 1.0],
-        height_ratios=[1.0, 0.82],
-        hspace=0.50,
-        wspace=0.34,
-        left=0.085,
+        width_ratios=[1.12, 1.0],
+        hspace=0.56,
+        wspace=0.31,
+        left=0.075,
         right=0.985,
-        top=0.93,
-        bottom=0.13,
+        top=0.91,
+        bottom=0.15,
     )
     ax_a = fig.add_subplot(grid[:, 0])
     ax_b = fig.add_subplot(grid[0, 1])
@@ -276,16 +294,16 @@ def main() -> None:
     draw_cost_parity(ax_a, units)
     draw_wacc_thresholds(ax_b, finance)
     draw_reduction_distribution(ax_c, finance)
-    add_panel_label(ax_a, "a", x=-0.17, y=1.05)
-    add_panel_label(ax_b, "b", x=-0.20, y=1.10)
-    add_panel_label(ax_c, "c", x=-0.20, y=1.12)
+    add_panel_label(ax_a, "a", x=-0.14, y=1.05)
+    add_panel_label(ax_b, "b", x=-0.13, y=1.10)
+    add_panel_label(ax_c, "c", x=-0.13, y=1.12)
 
     export_figure(
         fig,
         FIGURE_DIR / "figure3_cost_and_financing_diagnostics",
         contract={
-            "conclusion": "Unit records expose both the cost margin and the financing threshold behind each central crossover classification.",
-            "archetype": "hero parity plot with financing diagnostics",
+            "conclusion": "Unit records expose continuous cost margins and the financing reductions required to reach modeled cost parity.",
+            "archetype": "cost-parity plot with financing-threshold and threshold-distribution panels",
             "backend": "Python matplotlib",
             "final_width_mm": "180",
         },

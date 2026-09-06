@@ -1,4 +1,4 @@
-"""Build Figure 5: independent numerical recalculation checks."""
+"""Build Figure 6: independent numerical recalculation checks."""
 
 from __future__ import annotations
 
@@ -127,9 +127,9 @@ def write_source_tables(
 ) -> list[Path]:
     TABLE_DIR.mkdir(parents=True, exist_ok=True)
     paths = [
-        TABLE_DIR / "figure5_central_recalculation.csv",
-        TABLE_DIR / "figure5_scenario_recalculation.csv",
-        TABLE_DIR / "figure5_validation_summary.csv",
+        TABLE_DIR / "figure6_central_recalculation.csv",
+        TABLE_DIR / "figure6_scenario_recalculation.csv",
+        TABLE_DIR / "figure6_validation_summary.csv",
     ]
     central_long.to_csv(paths[0], index=False)
     scenario_long.to_csv(paths[1], index=False)
@@ -301,7 +301,7 @@ def main() -> None:
     central_long, scenario_long, summary = load_and_reshape()
     source_tables = write_source_tables(central_long, scenario_long, summary)
 
-    fig = plt.figure(figsize=(180 / 25.4, 92 / 25.4), constrained_layout=False)
+    fig = plt.figure(figsize=(180 / 25.4, 88 / 25.4), constrained_layout=False)
     grid = fig.add_gridspec(
         1,
         3,
@@ -310,7 +310,7 @@ def main() -> None:
         left=0.08,
         right=0.985,
         top=0.91,
-        bottom=0.16,
+        bottom=0.13,
     )
     ax_a = fig.add_subplot(grid[0, 0])
     ax_b = fig.add_subplot(grid[0, 1])
@@ -323,17 +323,7 @@ def main() -> None:
     add_panel_label(ax_b, "b", x=-0.18, y=1.09)
     add_panel_label(ax_c, "c", x=-0.10, y=1.09)
 
-    fig.text(
-        0.08,
-        0.03,
-        "The deterministic validation sample contains 48 units selected across classes, regions, boundaries and missing-input cases.",
-        ha="left",
-        va="bottom",
-        fontsize=6.1,
-        color=COLORS["muted"],
-    )
-
-    base_path = FIGURE_DIR / "figure5_independent_recalculation"
+    base_path = FIGURE_DIR / "figure6_independent_recalculation"
     export_figure(
         fig,
         base_path,

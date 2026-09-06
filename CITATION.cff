@@ -1,9 +1,8 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite the archived release."
+message: "Submission snapshot checked on 6 September 2026. Use the archived record for the final software citation."
 title: "Coal Crossover reproducible research code"
 type: software
-version: 1.0.0-rc1
-date-released: 2026-08-08
+repository-code: "https://github.com/Davidfu777/coal-crossover"
 authors:
   - family-names: Loghmani
     given-names: Lilly
