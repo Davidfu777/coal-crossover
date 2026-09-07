@@ -28,7 +28,6 @@ TITLE = "A global dataset for coal-to-renewables cost crossover analysis"
 AUTHORS = (
     "Lilly Loghmani",
     "Haoran Fu",
-    "Connor Butterfield",
     "Gernot Wagner",
 )
 VERSION = "1.0.0-rc1"
