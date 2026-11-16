@@ -12,9 +12,9 @@ from figure_common import (
     FIGURE_DIR,
     OUTPUT_DIR,
     TABLE_DIR,
-    add_panel_label,
     configure_style,
     export_figure,
+    panel_title,
 )
 
 CENTRAL_METRICS = {
@@ -173,7 +173,7 @@ def draw_central_parity(ax: plt.Axes, data: pd.DataFrame) -> None:
         ax,
         data[["stored_usd_per_mwh", "recalculated_usd_per_mwh"]].to_numpy(),
     )
-    ax.set_title("Central cost calculations", loc="left", pad=5)
+    panel_title(ax, "a", "Central cost calculations")
     ax.legend(
         loc="upper left",
         fontsize=5.8,
@@ -204,12 +204,12 @@ def draw_scenario_parity(ax: plt.Axes, data: pd.DataFrame) -> None:
         ax,
         data[["stored_usd_per_mwh", "recalculated_usd_per_mwh"]].to_numpy(),
     )
-    ax.set_title("Prespecified renewable scenarios", loc="left", pad=5)
+    panel_title(ax, "b", "Prespecified renewable scenarios")
     ax.legend(loc="upper left", fontsize=6.0)
 
 
 def draw_summary(ax: plt.Axes, summary: pd.DataFrame) -> None:
-    ax.set_title("Classification agreement", loc="left", pad=5)
+    panel_title(ax, "c", "Classification agreement")
     rows = summary.iloc[:3]
     labels = {
         "central classifications": "Central class",
@@ -258,10 +258,10 @@ def draw_summary(ax: plt.Axes, summary: pd.DataFrame) -> None:
 
     ax.set_yticks([])
     ax.set_xlim(99.35, 100.38)
-    ax.set_ylim(-1.05, 2.55)
+    ax.set_ylim(-1.4, 2.55)
     ax.set_xticks([99.5, 100.0])
     ax.set_xlabel("Agreement (%)")
-    ax.axvline(100, color=COLORS["muted"], linewidth=0.7, linestyle="--")
+    ax.vlines(100, -0.18, 2.48, color=COLORS["muted"], linewidth=0.7, linestyle="--", zorder=1)
     ax.grid(axis="x", color=COLORS["grid"], linewidth=0.55)
     ax.set_axisbelow(True)
     ax.spines["top"].set_visible(False)
@@ -302,10 +302,11 @@ def main() -> None:
     source_tables = write_source_tables(central_long, scenario_long, summary)
 
     fig = plt.figure(figsize=(180 / 25.4, 88 / 25.4), constrained_layout=False)
+    widths = [1.0, 1.0, 0.86]
     grid = fig.add_gridspec(
         1,
         3,
-        width_ratios=[1.0, 1.0, 0.86],
+        width_ratios=widths,
         wspace=0.40,
         left=0.08,
         right=0.985,
@@ -319,9 +320,9 @@ def main() -> None:
     draw_central_parity(ax_a, central_long)
     draw_scenario_parity(ax_b, scenario_long)
     draw_summary(ax_c, summary)
-    add_panel_label(ax_a, "a", x=-0.18, y=1.09)
-    add_panel_label(ax_b, "b", x=-0.18, y=1.09)
-    add_panel_label(ax_c, "c", x=-0.10, y=1.09)
+    # The two parity plots are square; the narrower summary must have the same height.
+    ax_c.set_box_aspect(widths[0] / widths[2])
+    ax_c.set_anchor("N")
 
     base_path = FIGURE_DIR / "figure6_independent_recalculation"
     export_figure(

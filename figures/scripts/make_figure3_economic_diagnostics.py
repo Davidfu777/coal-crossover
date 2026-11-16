@@ -12,9 +12,9 @@ from figure_common import (
     FIGURE_DIR,
     OUTPUT_DIR,
     TABLE_DIR,
-    add_panel_label,
     configure_style,
     export_figure,
+    panel_title,
 )
 from matplotlib.lines import Line2D
 
@@ -44,7 +44,10 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame]:
     return units, finance
 
 
-def write_source_tables(units: pd.DataFrame, finance: pd.DataFrame) -> list[Path]:
+def write_source_tables(
+    units: pd.DataFrame,
+    finance: pd.DataFrame,
+) -> list[Path]:
     TABLE_DIR.mkdir(parents=True, exist_ok=True)
     paths = [
         TABLE_DIR / "figure3_cost_parity_records.csv",
@@ -145,9 +148,10 @@ def draw_cost_parity(ax: plt.Axes, units: pd.DataFrame) -> None:
     ax.set_xlim(*limits)
     ax.set_ylim(*limits)
     ax.set_aspect("equal", adjustable="box")
-    ax.set_xlabel("Coal operating cost (2025 USD/MWh)")
+    ax.set_anchor("N")
+    ax.set_xlabel("Coal operating cost (USD/MWh)")
     ax.set_ylabel("Least-cost renewable LCOE (2025 USD/MWh)")
-    ax.set_title("Unit-level generation-cost comparison", loc="left", pad=5)
+    panel_title(ax, "a", "Unit-level generation-cost comparison")
     ax.grid(color=COLORS["grid"], linewidth=0.55)
     ax.set_axisbelow(True)
     legend = [
@@ -184,11 +188,14 @@ def draw_cost_parity(ax: plt.Axes, units: pd.DataFrame) -> None:
     ]
     ax.legend(
         handles=legend,
-        loc="upper right",
-        bbox_to_anchor=(0.99, 0.86),
+        loc="lower right",
+        bbox_to_anchor=(1.0, 0.52),
         frameon=False,
         fontsize=6.2,
-        handletextpad=0.4,
+        handlelength=0.8,
+        handletextpad=0.35,
+        borderpad=0.15,
+        labelspacing=0.3,
     )
 
 
@@ -212,14 +219,14 @@ def draw_wacc_thresholds(ax: plt.Axes, finance: pd.DataFrame) -> None:
     ax.set_ylim(*limits)
     ax.set_xlabel("Current real after-tax WACC (%)")
     ax.set_ylabel("Break-even WACC (%)")
-    ax.set_title("Financing threshold", loc="left", pad=5)
+    panel_title(ax, "b", "Financing threshold")
     ax.grid(color=COLORS["grid"], linewidth=0.55)
     ax.set_axisbelow(True)
     median = finance["selected_required_wacc_reduction_pp"].median()
     ax.text(
         0.04,
         0.95,
-        f"Median reduction: {median:.2f} pp",
+        f"Median gap: {median:.2f} percentage points",
         transform=ax.transAxes,
         ha="left",
         va="top",
@@ -241,7 +248,15 @@ def draw_reduction_distribution(ax: plt.Axes, finance: pd.DataFrame) -> None:
         ax.scatter(
             [x], [y], s=22, color=COLORS["primary"], edgecolor="white", linewidth=0.4, zorder=3
         )
-        ax.text(x + 0.15, y - 2, f"{label}: {x:.2f} pp", ha="left", va="top", fontsize=6.0)
+        ax.annotate(
+            f"{label}: {x:.2f} pp",
+            xy=(x, y),
+            xytext=(3, -12 if label == "90th percentile" else -2),
+            textcoords="offset points",
+            ha="left",
+            va="top",
+            fontsize=6.0,
+        )
     maximum = float(values.max())
     ax.scatter(
         [maximum],
@@ -252,10 +267,11 @@ def draw_reduction_distribution(ax: plt.Axes, finance: pd.DataFrame) -> None:
         linewidth=0.4,
         zorder=3,
     )
-    ax.text(
-        maximum - 0.10,
-        98,
+    ax.annotate(
         f"Maximum: {maximum:.3f} pp",
+        xy=(maximum, 100),
+        xytext=(6, -7),
+        textcoords="offset points",
         ha="right",
         va="top",
         fontsize=6.0,
@@ -265,8 +281,8 @@ def draw_reduction_distribution(ax: plt.Axes, finance: pd.DataFrame) -> None:
     ax.set_xlim(0, 8.8)
     ax.set_ylim(0, 102)
     ax.set_xlabel("Required WACC reduction (percentage points)")
-    ax.set_ylabel("Cumulative share of finance-sensitive units (%)")
-    ax.set_title("Distribution of financing support", loc="left", pad=5)
+    ax.set_ylabel("Cumulative share (%)", labelpad=3)
+    panel_title(ax, "c", "Distribution of financing support")
     ax.grid(color=COLORS["grid"], linewidth=0.55)
     ax.set_axisbelow(True)
 
@@ -281,6 +297,7 @@ def main() -> None:
         2,
         2,
         width_ratios=[1.12, 1.0],
+        height_ratios=[0.92, 1.08],
         hspace=0.56,
         wspace=0.31,
         left=0.075,
@@ -294,16 +311,13 @@ def main() -> None:
     draw_cost_parity(ax_a, units)
     draw_wacc_thresholds(ax_b, finance)
     draw_reduction_distribution(ax_c, finance)
-    add_panel_label(ax_a, "a", x=-0.14, y=1.05)
-    add_panel_label(ax_b, "b", x=-0.13, y=1.10)
-    add_panel_label(ax_c, "c", x=-0.13, y=1.12)
 
     export_figure(
         fig,
         FIGURE_DIR / "figure3_cost_and_financing_diagnostics",
         contract={
             "conclusion": "Unit records expose continuous cost margins and the financing reductions required to reach modeled cost parity.",
-            "archetype": "cost-parity plot with financing-threshold and threshold-distribution panels",
+            "archetype": "hero cost-parity plot with financing-threshold and threshold-distribution panels",
             "backend": "Python matplotlib",
             "final_width_mm": "180",
         },

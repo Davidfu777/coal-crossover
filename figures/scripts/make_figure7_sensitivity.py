@@ -12,9 +12,9 @@ from figure_common import (
     FIGURE_DIR,
     OUTPUT_DIR,
     TABLE_DIR,
-    add_panel_label,
     configure_style,
     export_figure,
+    panel_title,
 )
 
 
@@ -128,12 +128,13 @@ def draw_renewable_sensitivity(ax: plt.Axes, data: pd.DataFrame) -> None:
     for x, y in zip(x_array, y_array):
         ax.text(x, y + 0.24, f"{y:.2f}", ha="center", va="bottom", fontsize=5.6)
     for x, group_name in group_centers:
-        ax.text(
-            x,
-            99.15,
+        ax.annotate(
             group_name,
+            xy=(x, 99),
+            xytext=(0, 4),
+            textcoords="offset points",
             ha="center",
-            va="top",
+            va="bottom",
             fontsize=6.3,
             weight="bold",
             color=COLORS["muted"],
@@ -141,7 +142,7 @@ def draw_renewable_sensitivity(ax: plt.Axes, data: pd.DataFrame) -> None:
     ax.set_xticks(x_array, labels)
     ax.set_ylim(92.5, 99.3)
     ax.set_ylabel("Units below coal operating cost (%)")
-    ax.set_title("Resource and wind-loss assumptions", loc="left", pad=5)
+    panel_title(ax, "a", "Resource and wind-loss assumptions", pad=9)
     ax.grid(axis="y", color=COLORS["grid"], linewidth=0.6)
     ax.set_axisbelow(True)
 
@@ -167,7 +168,7 @@ def draw_storage_sensitivity(ax: plt.Axes, data: pd.DataFrame) -> None:
     ax.set_xticks([0, 25, 50, 100])
     ax.set_xlabel("Delivered energy routed through storage (%)")
     ax.set_ylabel("Units below coal operating cost (%)")
-    ax.set_title("Four-hour battery cost sensitivity", loc="left", pad=5)
+    panel_title(ax, "b", "Four-hour battery cost sensitivity", pad=9)
     ax.grid(color=COLORS["grid"], linewidth=0.6)
     ax.set_axisbelow(True)
 
@@ -192,8 +193,6 @@ def main() -> None:
     ax_b = fig.add_subplot(grid[0, 1])
     draw_renewable_sensitivity(ax_a, renewable)
     draw_storage_sensitivity(ax_b, storage)
-    add_panel_label(ax_a, "a", x=-0.13, y=1.10)
-    add_panel_label(ax_b, "b", x=-0.15, y=1.10)
 
     base_path = FIGURE_DIR / "figure7_sensitivity_behavior"
     export_figure(

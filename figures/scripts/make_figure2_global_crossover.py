@@ -14,9 +14,9 @@ from figure_common import (
     OUTPUT_DIR,
     TABLE_DIR,
     WORLD_SHP,
-    add_panel_label,
     configure_style,
     export_figure,
+    panel_title,
 )
 from matplotlib.lines import Line2D
 
@@ -155,7 +155,7 @@ def draw_crossover_map(ax: plt.Axes, plants: pd.DataFrame) -> None:
             rasterized=True,
         )
 
-    ax.set_title("Central results across 1,056 plants", loc="left", pad=4)
+    panel_title(ax, "a", "Central results across 1,056 plants", pad=4)
     legend = [
         Line2D(
             [0],
@@ -248,7 +248,7 @@ def draw_technology_mix(ax: plt.Axes, technology: pd.DataFrame) -> None:
     ax.invert_yaxis()
     ax.set_xlim(0, 100)
     ax.set_xlabel("Share of comparison-sample coal capacity (%)")
-    ax.set_title("Least-cost technology by region", loc="left", pad=5)
+    panel_title(ax, "b", "Least-cost technology by region")
     ax.grid(axis="x", color=COLORS["grid"], linewidth=0.6)
     ax.set_axisbelow(True)
     ax.legend(loc="lower center", bbox_to_anchor=(0.5, -0.34), ncol=2, frameon=False, fontsize=6.2)
@@ -273,7 +273,7 @@ def draw_regional_crossover(ax: plt.Axes, crossover: pd.DataFrame) -> None:
     ax.set_xlim(88, 102.5)
     ax.set_xticks([90, 95, 100])
     ax.set_xlabel("Units below coal operating cost (%)")
-    ax.set_title("Central crossover share by region", loc="left", pad=5)
+    panel_title(ax, "c", "Central crossover share by region")
     ax.grid(axis="x", color=COLORS["grid"], linewidth=0.6)
     ax.set_axisbelow(True)
 
@@ -302,9 +302,6 @@ def main() -> None:
     draw_crossover_map(ax_a, plants)
     draw_technology_mix(ax_b, technology)
     draw_regional_crossover(ax_c, crossover)
-    add_panel_label(ax_a, "a", x=-0.06, y=1.05)
-    add_panel_label(ax_b, "b", x=-0.13, y=1.10)
-    add_panel_label(ax_c, "c", x=-0.15, y=1.10)
 
     export_figure(
         fig,

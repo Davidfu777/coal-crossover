@@ -27,8 +27,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import shapefile
-from figure_common import FIGURE_DIR, OUTPUT_DIR, REPO_ROOT, TABLE_DIR, WORLD_SHP, sha256
+from figure_common import FIGURE_DIR, OUTPUT_DIR, TABLE_DIR, WORLD_SHP, panel_title, sha256
 from matplotlib.lines import Line2D
+from matplotlib.patches import Rectangle
 
 COLORS = {
     "ink": "#18211E",
@@ -132,55 +133,42 @@ def write_figure_data(
 
 def draw_workflow(ax: plt.Axes) -> None:
     ax.set_axis_off()
-    ax.text(
-        0.0,
-        0.94,
-        "Source-to-record pipeline",
-        transform=ax.transAxes,
-        ha="left",
-        va="top",
-        fontsize=8.2,
-        weight="bold",
-    )
+    panel_title(ax, "b", "From sources to records", pad=4)
     stages = [
-        ("Versioned\ninputs", COLORS["coal"]),
-        ("Harmonized\nrecords", COLORS["solar"]),
-        ("Local resource\nmatches", COLORS["wind"]),
-        ("Cost and financing\ndiagnostics", COLORS["primary"]),
-        ("Data\nrecords", COLORS["validation"]),
+        "Register units, prices and resource maps",
+        "Harmonize identifiers, units and cost years",
+        "Match each plant to local wind and solar",
+        "Compare costs at the assigned financing rate",
+        "Write unit records and sensitivity tables",
     ]
-    x_positions = np.linspace(0.07, 0.93, len(stages))
-    ax.plot(
-        [x_positions[0], x_positions[-1]],
-        [0.48, 0.48],
-        transform=ax.transAxes,
-        color=COLORS["line"],
-        linewidth=1.2,
-        zorder=1,
-    )
-    for index, (x, (title, color)) in enumerate(zip(x_positions, stages)):
-        ax.scatter(
-            [x],
-            [0.48],
-            transform=ax.transAxes,
-            s=58,
-            color=color,
-            edgecolor="white",
-            linewidth=0.7,
-            zorder=3,
+    for i, (y, title) in enumerate(zip(np.linspace(0.90, 0.10, 5), stages)):
+        ax.add_patch(
+            Rectangle(
+                (0.015, y - 0.066),
+                0.96,
+                0.132,
+                transform=ax.transAxes,
+                facecolor="#F4F8F6",
+                edgecolor="#8DA89F",
+                lw=0.65,
+            )
         )
-        ax.text(
-            x,
-            0.23 if index % 2 == 0 else 0.72,
-            title,
-            transform=ax.transAxes,
-            ha="center",
-            va="center",
-            color=color,
-            weight="bold",
-            fontsize=5.7,
-            linespacing=1.15,
-        )
+        ax.text(0.495, y, title, transform=ax.transAxes, ha="center", va="center", fontsize=6.6)
+        if i < len(stages) - 1:
+            ax.annotate(
+                "",
+                xy=(0.495, y - 0.131),
+                xytext=(0.495, y - 0.068),
+                xycoords="axes fraction",
+                arrowprops=dict(
+                    arrowstyle="-|>",
+                    color=COLORS["primary"],
+                    lw=0.7,
+                    shrinkA=0,
+                    shrinkB=0,
+                    mutation_scale=5.5,
+                ),
+            )
 
 
 def draw_world(ax: plt.Axes) -> None:
@@ -210,8 +198,7 @@ def draw_world(ax: plt.Axes) -> None:
 
 
 def marker_sizes(capacity_mw: pd.Series) -> np.ndarray:
-    clipped = capacity_mw.clip(lower=30, upper=5_000)
-    return 5 + 44 * np.sqrt(clipped.to_numpy() / 5_000)
+    return 0.017 * np.asarray(capacity_mw)
 
 
 def draw_coverage_map(ax: plt.Axes, expanded: pd.DataFrame, primary: pd.DataFrame) -> None:
@@ -233,7 +220,7 @@ def draw_coverage_map(ax: plt.Axes, expanded: pd.DataFrame, primary: pd.DataFram
     ax.scatter(
         primary["longitude"],
         primary["latitude"],
-        s=marker_sizes(primary["capacity_mw"]),
+        s=marker_sizes(primary["plant_id"].map(expanded.set_index("plant_id")["capacity_mw"])),
         color=COLORS["primary"],
         edgecolors="white",
         linewidths=0.3,
@@ -241,12 +228,7 @@ def draw_coverage_map(ax: plt.Axes, expanded: pd.DataFrame, primary: pd.DataFram
         zorder=3,
         rasterized=True,
     )
-    ax.set_title(
-        "Global plant coverage",
-        loc="left",
-        pad=4,
-        weight="bold",
-    )
+    panel_title(ax, "a", "Global plant coverage", pad=4)
 
     legend_items = [
         Line2D(
@@ -270,24 +252,36 @@ def draw_coverage_map(ax: plt.Axes, expanded: pd.DataFrame, primary: pd.DataFram
             label="Expanded-only plants (1,328; 13 additional countries)",
         ),
     ]
-    ax.legend(
+    cohort_legend = ax.legend(
         handles=legend_items,
-        loc="lower left",
+        loc="upper left",
+        bbox_to_anchor=(0, 0.05),
         frameon=False,
         fontsize=6.25,
         handlelength=1,
         handletextpad=0.4,
         borderaxespad=0.2,
     )
-    ax.text(
-        1.0,
-        0.0,
-        "Marker area is proportional to operating coal capacity.",
-        transform=ax.transAxes,
-        ha="right",
-        va="bottom",
-        fontsize=5.9,
-        color=COLORS["muted"],
+    ax.add_artist(cohort_legend)
+    levels = [200, 1000, 4000]
+    handles = [
+        ax.scatter(
+            [], [], s=marker_sizes([mw])[0], color=COLORS["coal"], linewidths=0, label=f"{mw:,}"
+        )
+        for mw in levels
+    ]
+    ax.legend(
+        handles=handles,
+        title="Operating capacity (MW)",
+        title_fontsize=6.1,
+        loc="upper right",
+        bbox_to_anchor=(1, 0.05),
+        frameon=False,
+        ncol=3,
+        fontsize=6.1,
+        columnspacing=0.8,
+        handlelength=1.2,
+        borderaxespad=0,
     )
 
 
@@ -311,7 +305,7 @@ def draw_record_inventory(ax: plt.Axes, counts: dict[str, int]) -> None:
     ax.set_xscale("log")
     ax.set_xlim(300, 400_000)
     ax.set_xlabel("Number of records (log scale)")
-    ax.set_title("Data package", loc="left", pad=4, weight="bold")
+    panel_title(ax, "c", "Data package", pad=4)
     ax.grid(axis="x", color="#E2E6E4", linewidth=0.55, zorder=0)
     ax.set_axisbelow(True)
     ax.tick_params(axis="y", length=0)
@@ -343,7 +337,7 @@ def build_figure() -> None:
         2,
         height_ratios=[1.82, 0.95],
         width_ratios=[1.22, 1.0],
-        hspace=0.22,
+        hspace=0.51,
         wspace=0.42,
         left=0.05,
         right=0.985,
@@ -358,12 +352,9 @@ def build_figure() -> None:
     draw_coverage_map(map_ax, expanded, primary)
     draw_record_inventory(inventory_ax, counts)
 
-    figure.text(0.012, 0.965, "a", fontsize=9, weight="bold", va="top")
-    figure.text(0.012, 0.37, "b", fontsize=9, weight="bold", va="top")
-    figure.text(0.59, 0.37, "c", fontsize=9, weight="bold", va="top")
-
     FIGURE_DIR.mkdir(parents=True, exist_ok=True)
     stem = FIGURE_DIR / "figure1_dataset_workflow_and_coverage"
+    figure.canvas.draw()
     figure.savefig(stem.with_suffix(".pdf"), bbox_inches="tight")
     figure.savefig(stem.with_suffix(".svg"), bbox_inches="tight")
     figure.savefig(stem.with_suffix(".png"), dpi=300, bbox_inches="tight")
@@ -394,7 +385,7 @@ def build_figure() -> None:
         TABLE_DIR / "figure1_record_counts.csv",
     ]
     metadata = {
-        "script": Path(__file__).resolve().relative_to(REPO_ROOT).as_posix(),
+        "script": Path(__file__).name,
         "inputs": [{"path": path.name, "sha256": sha256(path)} for path in source_files],
         "source_tables": [{"path": path.name, "sha256": sha256(path)} for path in source_tables],
         "outputs": [

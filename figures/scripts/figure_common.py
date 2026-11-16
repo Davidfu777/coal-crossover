@@ -9,6 +9,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import matplotlib as mpl
+from matplotlib.transforms import blended_transform_factory
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[1]
@@ -137,4 +138,17 @@ def add_panel_label(ax, label: str, x: float = -0.08, y: float = 1.08) -> None:
         fontweight="bold",
         va="top",
         ha="left",
+    )
+
+
+def panel_title(ax, label: str, title: str, *, pad: float = 5) -> None:
+    # Keep headings aligned to the column even when a map uses a fixed aspect.
+    gap = "    " + {"a": "\u2004", "b": " ", "c": "\u2004"}[label]
+    fig = ax.figure
+    slot = ax.get_subplotspec().get_position(fig)
+    heading = ax.set_title(
+        label + gap + title, loc="left", x=slot.x0, y=1, pad=pad, fontweight="bold"
+    )
+    heading.set_transform(
+        blended_transform_factory(fig.transFigure, ax.transAxes) + ax.titleOffsetTrans
     )

@@ -152,7 +152,7 @@ def draw_response(ax: plt.Axes, response: pd.DataFrame, maximum_reduction: float
     ax.annotate(
         f"Final comparison-sample crossover\n{maximum_reduction:.3f} pp",
         xy=(maximum_reduction, 100),
-        xytext=(6.25, 97.3),
+        xytext=(4.05, 97.3),
         arrowprops={"arrowstyle": "-", "color": COLORS["alert"], "linewidth": 0.7},
         ha="left",
         va="top",
@@ -168,7 +168,13 @@ def draw_response(ax: plt.Axes, response: pd.DataFrame, maximum_reduction: float
     ax.set_title("Crossover response to uniform financing support", loc="left", pad=5)
     ax.grid(color=COLORS["grid"], linewidth=0.6)
     ax.set_axisbelow(True)
-    ax.legend(loc="lower right", frameon=False, fontsize=6.4, handlelength=1.8)
+    ax.legend(
+        loc="lower right",
+        bbox_to_anchor=(0.66, 0.015),
+        frameon=False,
+        fontsize=6.4,
+        handlelength=1.8,
+    )
 
 
 def draw_summary(ax: plt.Axes, response: pd.DataFrame) -> None:

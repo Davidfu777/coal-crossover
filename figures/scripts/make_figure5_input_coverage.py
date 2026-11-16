@@ -12,9 +12,9 @@ from figure_common import (
     FIGURE_DIR,
     OUTPUT_DIR,
     TABLE_DIR,
-    add_panel_label,
     configure_style,
     export_figure,
+    panel_title,
 )
 
 
@@ -124,6 +124,7 @@ def draw_share_bars(
     tier_order: list[str],
     tier_labels: dict[str, str],
     tier_colors: dict[str, str],
+    panel: str,
     title: str,
 ) -> None:
     categories = list(dict.fromkeys(data[category_column]))
@@ -138,7 +139,7 @@ def draw_share_bars(
             y,
             values * 100,
             left=left,
-            height=0.48,
+            height=0.32,
             color=tier_colors[tier],
             edgecolor="white",
             linewidth=0.4,
@@ -157,20 +158,24 @@ def draw_share_bars(
                     fontweight="bold",
                 )
         left += values * 100
-    ax.set_yticks(y, categories)
-    ax.invert_yaxis()
-    ax.set_ylim(len(categories) - 0.5, -0.95)
+    ax.set_yticks([])
+    for row_y, category in zip(y, categories):
+        ax.text(
+            0, row_y - 0.23, category, ha="left", va="bottom", fontsize=6.8, color=COLORS["muted"]
+        )
+    ax.set_ylim(len(categories) - 0.50, -0.58)
     ax.set_xlim(0, 100)
     ax.set_xlabel("Share of records (%)")
-    ax.set_title(title, loc="left", pad=5)
+    panel_title(ax, panel, title)
+    ax.spines["left"].set_visible(False)
     ax.grid(axis="x", color=COLORS["grid"], linewidth=0.6)
     ax.set_axisbelow(True)
     ax.legend(
         loc="upper left",
-        bbox_to_anchor=(0.0, 0.99),
-        ncol=len(tier_order),
+        bbox_to_anchor=(0.0, -0.30),
+        ncol=1,
         frameon=False,
-        fontsize=5.5,
+        fontsize=6.1,
         handlelength=1.0,
         columnspacing=0.8,
         borderaxespad=0.0,
@@ -204,11 +209,7 @@ def draw_resource_coverage(ax: plt.Axes, summary: pd.DataFrame) -> None:
     ax.set_xticks([30, 45, 60])
     ax.set_xlabel("Search radius (km)")
     ax.set_ylabel("Valid raster cells per plant")
-    ax.set_title(
-        "Same-country resource matches",
-        loc="left",
-        pad=5,
-    )
+    panel_title(ax, "c", "Same-country resource matches")
     ax.grid(axis="y", which="major", color=COLORS["grid"], linewidth=0.6)
     ax.set_axisbelow(True)
     ax.legend(loc="upper left", ncol=2, fontsize=6.4)
@@ -216,7 +217,7 @@ def draw_resource_coverage(ax: plt.Axes, summary: pd.DataFrame) -> None:
     solar_share = summary.loc[summary["technology"].eq("solar"), "matched_share"].min()
     ax.text(
         0.98,
-        0.79,
+        0.64,
         f"Wind: {wind_share * 100:.1f}% matched\nSolar: {solar_share * 100:.1f}% matched",
         transform=ax.transAxes,
         ha="right",
@@ -225,11 +226,11 @@ def draw_resource_coverage(ax: plt.Axes, summary: pd.DataFrame) -> None:
         color=COLORS["muted"],
     )
     ax.text(
-        1.0,
-        -0.22,
-        "Points show medians; ranges show the 10th–90th percentiles.",
+        0.0,
+        -0.30,
+        "Points show medians; ranges show\nthe 10th–90th percentiles.",
         transform=ax.transAxes,
-        ha="right",
+        ha="left",
         va="top",
         fontsize=6.1,
         color=COLORS["muted"],
@@ -241,21 +242,20 @@ def main() -> None:
     om_summary, wacc_summary, resource_summary = load_and_summarize()
     source_tables = write_source_tables(om_summary, wacc_summary, resource_summary)
 
-    fig = plt.figure(figsize=(180 / 25.4, 96 / 25.4), constrained_layout=False)
+    fig = plt.figure(figsize=(180 / 25.4, 75 / 25.4), constrained_layout=False)
     grid = fig.add_gridspec(
-        2,
-        2,
-        width_ratios=[1.0, 1.65],
-        hspace=0.94,
-        wspace=0.35,
-        left=0.15,
+        1,
+        3,
+        width_ratios=[1.0, 1.0, 1.18],
+        wspace=0.36,
+        left=0.025,
         right=0.985,
-        top=0.91,
-        bottom=0.18,
+        top=0.88,
+        bottom=0.29,
     )
     ax_a = fig.add_subplot(grid[0, 0])
-    ax_b = fig.add_subplot(grid[1, 0])
-    ax_c = fig.add_subplot(grid[:, 1])
+    ax_b = fig.add_subplot(grid[0, 1])
+    ax_c = fig.add_subplot(grid[0, 2])
 
     draw_share_bars(
         ax_a,
@@ -272,6 +272,7 @@ def main() -> None:
             "country_technology": COLORS["primary"],
             "technology_median": COLORS["expanded"],
         },
+        panel="a",
         title="Coal O&M assignment",
     )
     draw_share_bars(
@@ -286,13 +287,10 @@ def main() -> None:
             "country": COLORS["wind"],
             "global_median": COLORS["expanded"],
         },
+        panel="b",
         title="Renewable WACC assignment",
     )
     draw_resource_coverage(ax_c, resource_summary)
-
-    add_panel_label(ax_a, "a", x=-0.23, y=1.13)
-    add_panel_label(ax_b, "b", x=-0.23, y=1.13)
-    add_panel_label(ax_c, "c", x=-0.12, y=1.07)
 
     base_path = FIGURE_DIR / "figure5_input_coverage_and_fallbacks"
     export_figure(

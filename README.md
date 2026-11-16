@@ -71,6 +71,12 @@ All 51 tests passed in the 6 September 2026 reproduction check. GitHub Actions r
 
 ## Figures
 
+The [1.0.0 software release](https://doi.org/10.5281/zenodo.24293866) reproduces
+the seven November 2026 manuscript figures using the [unchanged September data
+snapshot](https://doi.org/10.5281/zenodo.22092469). The plotting scripts use the
+same filenames as earlier releases; the manuscript uses a `_revised` filename
+for Figures 1 and 3. Only the filenames differ.
+
 Figures can use either the completed pipeline outputs or the separately supplied data package. To use the data package without repeating raster extraction, restore its tables to a new directory:
 
 ```bash
@@ -93,6 +99,17 @@ python scripts/build_figures.py
 Figures are written to `figures/generated/`; source tables are written to `figures/source_data/`. Each figure also receives a JSON provenance record containing input and output hashes.
 
 The manuscript figures use Arial. The scripts fall back to Helvetica or DejaVu Sans if Arial is unavailable; numerical results remain the same, but text placement can differ slightly.
+
+## Verify the figures and revision checks
+
+See [the revision checks](scripts/revision_checks/README.md) for the optional
+US validation and cost sensitivity calculations. To check the seven PDFs
+against the manuscript, run the following from the repository root after
+generating the figures with the pinned environment and Arial:
+
+```bash
+(cd figures/generated && shasum -a 256 -c ../manuscript-pdfs.sha256)
+```
 
 ## Browser data exports
 
